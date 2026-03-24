@@ -88,4 +88,91 @@ const getProfile = catchAsync(async (req, res, next) => {
   return success(res, { user }, 200, 'Lấy thông tin hồ sơ thành công.');
 });
 
-module.exports = { getProfile, updateProfile, updateVibes, uploadAvatar };
+/**
+ * GET /api/users/:id/profile
+ * Returns public-safe profile for another user (for discovery card detail).
+ */
+const getPublicProfile = catchAsync(async (req, res, next) => {
+  const { id } = req.params;
+
+  const user = await User.findById(id).select(
+    'displayName avatar bio vibes birthYear photos'
+  );
+  if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
+
+  return success(res, { user }, 200, 'Lấy hồ sơ thành công.');
+});
+
+/**
+ * PATCH /api/users/bio
+ * Update user bio text.
+ */
+const updateBio = catchAsync(async (req, res, next) => {
+  const userId = req.user?.id;
+  const { bio } = req.body;
+
+  if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
+  if (typeof bio !== 'string') return next(new AppError('bio phải là chuỗi.', 400));
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { bio: bio.trim() },
+    { new: true }
+  );
+  if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
+
+  return success(res, { bio: user.bio }, 200, 'Cập nhật bio thành công.');
+});
+
+/**
+ * POST /api/users/photos
+ * Upload an extra photo (multer) and push to user.photos array.
+ */
+const addPhoto = catchAsync(async (req, res, next) => {
+  const userId = req.user?.id;
+  if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
+  if (!req.file) return next(new AppError('Vui lòng cung cấp file ảnh.', 400));
+
+  const photoUrl = req.file.path; // Cloudinary URL
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $push: { photos: photoUrl } },
+    { new: true }
+  );
+  if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
+
+  return success(res, { photos: user.photos }, 200, 'Thêm ảnh thành công.');
+});
+
+/**
+ * DELETE /api/users/photos
+ * Body: { photoUrl: string } — Remove a specific photo from the photos array.
+ */
+const deletePhoto = catchAsync(async (req, res, next) => {
+  const userId = req.user?.id;
+  const { photoUrl } = req.body;
+
+  if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
+  if (!photoUrl) return next(new AppError('photoUrl là bắt buộc.', 400));
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $pull: { photos: photoUrl } },
+    { new: true }
+  );
+  if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
+
+  return success(res, { photos: user.photos }, 200, 'Xóa ảnh thành công.');
+});
+
+module.exports = {
+  getProfile,
+  updateProfile,
+  updateVibes,
+  uploadAvatar,
+  getPublicProfile,
+  updateBio,
+  addPhoto,
+  deletePhoto,
+};

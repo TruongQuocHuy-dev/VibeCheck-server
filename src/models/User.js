@@ -51,6 +51,10 @@ const UserSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    photos: {
+      type: [String],
+      default: [], // Extra photo URLs shown in the discovery card detail
+    },
   },
   { timestamps: true }
 );
