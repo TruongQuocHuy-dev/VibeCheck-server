@@ -9,7 +9,7 @@ const { success } = require('../utils/apiResponse');
  * Sets isProfileComplete = true.
  */
 const updateProfile = catchAsync(async (req, res, next) => {
-  const { displayName, birthYear } = req.body;
+  const { displayName, fullName, birthYear } = req.body;
   const userId = req.user?.id;
 
   if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
@@ -22,6 +22,7 @@ const updateProfile = catchAsync(async (req, res, next) => {
   if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
 
   user.displayName = displayName;
+  if (fullName !== undefined) user.fullName = fullName;
   user.birthYear = Number(birthYear);
   user.isProfileComplete = true; // Profiling complete
   await user.save();
@@ -96,7 +97,7 @@ const getPublicProfile = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
   const user = await User.findById(id).select(
-    'displayName avatar bio vibes birthYear photos'
+    'displayName fullName avatar bio vibes birthYear photos isOnline lastActive'
   );
   if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
 

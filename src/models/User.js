@@ -31,6 +31,10 @@ const UserSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    fullName: {
+      type: String,
+      default: null,
+    },
     birthYear: {
       type: Number,
       default: null,
@@ -54,6 +58,14 @@ const UserSchema = new mongoose.Schema(
     photos: {
       type: [String],
       default: [], // Extra photo URLs shown in the discovery card detail
+    },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    lastActive: {
+      type: Date,
+      default: Date.now,
     },
   },
   { timestamps: true }

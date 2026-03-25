@@ -99,7 +99,7 @@ const getMatches = async (req, res) => {
       participants: userId,
     })
       .sort({ lastMessageAt: -1 })
-      .populate('participants', 'displayName avatar bio vibes');
+      .populate('participants', 'fullName displayName avatar bio vibes isOnline lastActive');
 
     const matches = conversations.map((conv) => {
       const otherUser = conv.participants.find(
