@@ -5,11 +5,9 @@ const UserSchema = new mongoose.Schema(
   {
     phone: {
       type: String,
-      required: false, // Changed for Google Login
-      unique: true,
-      sparse: true, // Allow multiple nulls/undefineds
+      required: false,
       trim: true,
-      index: true,
+      default: null,
     },
     email: {
       type: String,
@@ -69,6 +67,18 @@ const UserSchema = new mongoose.Schema(
     },
   },
   { timestamps: true }
+);
+
+// Unique index for phone, only if not null
+UserSchema.index(
+  { phone: 1 },
+  { unique: true, partialFilterExpression: { phone: { $type: 'string' } } }
+);
+
+// Unique index for email, only if not null
+UserSchema.index(
+  { email: 1 },
+  { unique: true, partialFilterExpression: { email: { $type: 'string' } } }
 );
 
 // Instance method: Check password
