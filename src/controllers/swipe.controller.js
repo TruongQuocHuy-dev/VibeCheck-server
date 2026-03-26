@@ -9,6 +9,7 @@ const createSwipe = async (req, res) => {
   try {
     const swiperId = req.user.id;
     const { swipedId, type } = req.body;
+    let emitPayload = null;
 
     if (!swipedId || !type) {
       return res.status(400).json({ status: 'fail', message: 'swipedId and type are required.' });
@@ -32,51 +33,74 @@ const createSwipe = async (req, res) => {
         swiper: swipedId,
         swiped: swiperId,
         type: 'like',
-      });
+      })
+        .select('_id')
+        .lean();
 
       if (reverseSwipe) {
         // It's a MATCH! Create or find existing conversation
         let conversation = await Conversation.findOne({
           participants: { $all: [swiperId, swipedId], $size: 2 },
-        });
+        })
+          .select('_id')
+          .lean();
 
         if (!conversation) {
-          conversation = await Conversation.create({
+          const createdConversation = await Conversation.create({
             participants: [swiperId, swipedId],
             unreadCounts: { [swiperId]: 0, [swipedId]: 0 },
           });
+          conversation = { _id: createdConversation._id };
         }
 
-        const swipedUser = await User.findById(swipedId).select('displayName avatar');
-        const swiperUser = await User.findById(swiperId).select('displayName avatar');
+        const [swipedUser, swiperUser] = await Promise.all([
+          User.findById(swipedId).select('displayName avatar').lean(),
+          User.findById(swiperId).select('displayName avatar').lean(),
+        ]);
 
         matchData = {
           conversationId: conversation._id,
           matchedUser: swipedUser,
         };
 
-        const io = getIO();
-
-        // Notify both users via socket
-        io.to(`user:${swipedId}`).emit('new_match', {
+        emitPayload = {
+          swipedId,
+          swiperId,
           conversationId: conversation._id,
-          matchedUser: swiperUser,
-        });
-
-        io.to(`user:${swiperId}`).emit('new_match', {
-          conversationId: conversation._id,
-          matchedUser: swipedUser,
-        });
+          swipedUser,
+          swiperUser,
+        };
       }
     }
 
-    return res.status(201).json({
+    res.status(201).json({
       status: 'success',
       data: {
         isMatch: !!matchData,
         match: matchData,
       },
     });
+
+    if (emitPayload) {
+      setImmediate(() => {
+        try {
+          const io = getIO();
+          io.to(`user:${emitPayload.swipedId}`).emit('new_match', {
+            conversationId: emitPayload.conversationId,
+            matchedUser: emitPayload.swiperUser,
+          });
+
+          io.to(`user:${emitPayload.swiperId}`).emit('new_match', {
+            conversationId: emitPayload.conversationId,
+            matchedUser: emitPayload.swipedUser,
+          });
+        } catch (socketErr) {
+          console.error('new_match emit error:', socketErr);
+        }
+      });
+    }
+
+    return;
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({ status: 'fail', message: 'Swipe already recorded.' });
