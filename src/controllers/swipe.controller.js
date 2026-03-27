@@ -54,8 +54,8 @@ const createSwipe = async (req, res) => {
         }
 
         const [swipedUser, swiperUser] = await Promise.all([
-          User.findById(swipedId).select('displayName avatar').lean(),
-          User.findById(swiperId).select('displayName avatar').lean(),
+          User.findById(swipedId).select('fullName displayName avatar').lean(),
+          User.findById(swiperId).select('fullName displayName avatar').lean(),
         ]);
 
         matchData = {
@@ -162,10 +162,28 @@ const getCandidates = async (req, res) => {
       _id: { $nin: [...swipedIds, userId] },
       isProfileComplete: true,
     })
-      .select('displayName avatar bio vibes birthYear photos')
+      .select('fullName displayName avatar bio vibes birthYear photos')
+      .lean()
       .limit(20);
 
-    return res.status(200).json({ status: 'success', data: candidates });
+    const candidateIds = candidates.map((c) => c._id);
+
+    const reverseLikes = await Swipe.find({
+      swiper: { $in: candidateIds },
+      swiped: userId,
+      type: 'like',
+    })
+      .select('swiper')
+      .lean();
+
+    const likedMeSet = new Set(reverseLikes.map((item) => item.swiper.toString()));
+
+    const enrichedCandidates = candidates.map((candidate) => ({
+      ...candidate,
+      hasLikedMe: likedMeSet.has(candidate._id.toString()),
+    }));
+
+    return res.status(200).json({ status: 'success', data: enrichedCandidates });
   } catch (error) {
     console.error('getCandidates error:', error);
     return res.status(500).json({ status: 'error', message: 'Internal server error.' });
