@@ -5,17 +5,21 @@ const { success } = require('../utils/apiResponse');
 
 /**
  * PATCH /api/users/profile
- * Update user nickname (displayName) and birthYear.
+ * Update user profile: nickname, full name, gender and birthYear.
  * Sets isProfileComplete = true.
  */
 const updateProfile = catchAsync(async (req, res, next) => {
-  const { displayName, fullName, birthYear } = req.body;
+  const { displayName, fullName, gender, birthYear } = req.body;
   const userId = req.user?.id;
 
   if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
 
-  if (!displayName || !birthYear) {
-    return next(new AppError('Vui lòng cung cấp biệt danh và năm sinh.', 400));
+  if (!displayName || !fullName || !birthYear || !gender) {
+    return next(new AppError('Vui lòng cung cấp họ tên, biệt danh, giới tính và năm sinh.', 400));
+  }
+
+  if (!['male', 'female'].includes(gender)) {
+    return next(new AppError('Giới tính không hợp lệ. Chỉ chấp nhận male hoặc female.', 400));
   }
 
   const user = await User.findById(userId);
@@ -23,6 +27,7 @@ const updateProfile = catchAsync(async (req, res, next) => {
 
   user.displayName = displayName;
   if (fullName !== undefined) user.fullName = fullName;
+  user.gender = gender;
   user.birthYear = Number(birthYear);
   user.isProfileComplete = true; // Profiling complete
   await user.save();
@@ -97,7 +102,7 @@ const getPublicProfile = catchAsync(async (req, res, next) => {
   const { id } = req.params;
 
   const user = await User.findById(id).select(
-    'displayName fullName avatar bio vibes birthYear photos isOnline lastActive'
+    'displayName fullName gender avatar bio vibes birthYear photos isOnline lastActive'
   );
   if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
 

@@ -55,6 +55,7 @@ const register = catchAsync(async (req, res, next) => {
         user = await User.create({ 
           email, 
           firebaseUid: uid,
+          fullName: name || null,
           displayName: name || null,
           avatar: picture || null
         });
@@ -82,7 +83,9 @@ const register = catchAsync(async (req, res, next) => {
     user: {
       id: user._id,
       phone: user.phone,
+      fullName: user.fullName,
       displayName: user.displayName,
+      gender: user.gender,
     },
   }, 200, isNewUser ? 'Đăng ký thành công' : 'Đăng nhập thành công');
 });
@@ -154,7 +157,13 @@ const login = catchAsync(async (req, res, next) => {
     refreshToken,
     isNewUser: false,
     isProfileComplete: user.isProfileComplete,
-    user: { id: user._id, phone: user.phone, displayName: user.displayName },
+    user: {
+      id: user._id,
+      phone: user.phone,
+      fullName: user.fullName,
+      displayName: user.displayName,
+      gender: user.gender,
+    },
   }, 200, 'Đăng nhập thành công');
 });
 
@@ -191,6 +200,7 @@ const googleLogin = catchAsync(async (req, res, next) => {
     user = await User.create({
       email,
       firebaseUid: googleId, // Use googleId as fallback to keep model happy or add googleId field
+      fullName: name || null,
       displayName: name || null,
       avatar: picture || null,
       isProfileComplete: false,
@@ -210,7 +220,9 @@ const googleLogin = catchAsync(async (req, res, next) => {
     user: {
       id: user._id,
       email: user.email,
+      fullName: user.fullName,
       displayName: user.displayName,
+      gender: user.gender,
     },
   }, 200, isNewUser ? 'Đăng ký Google thành công' : 'Đăng nhập Google thành công');
 });

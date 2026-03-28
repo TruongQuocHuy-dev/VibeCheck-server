@@ -23,7 +23,7 @@ router.get('/profile', getProfile);
 /** GET /api/users/:id/profile — Public profile (for discovery card detail) */
 router.get('/:id/profile', getPublicProfile);
 
-/** PATCH /api/users/profile — Update displayName, birthYear */
+/** PATCH /api/users/profile — Update displayName, fullName, gender, birthYear */
 router.patch('/profile', updateProfile);
 
 /** PATCH /api/users/bio — Update bio */

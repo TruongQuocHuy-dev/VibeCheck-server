@@ -11,7 +11,7 @@ const getConversations = async (req, res) => {
 
     const conversations = await Conversation.find({ participants: userId })
       .sort({ lastMessageAt: -1, updatedAt: -1 })
-      .populate('participants', 'displayName avatar bio');
+      .populate('participants', 'displayName fullName avatar bio');
 
     const result = conversations.map((conv) => {
       const otherUser = conv.participants.find(
@@ -59,7 +59,7 @@ const getMessages = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('sender', 'displayName avatar');
+      .populate('sender', 'displayName fullName avatar');
 
     // Mark messages as read
     await Message.updateMany(
@@ -141,7 +141,7 @@ const sendMessage = async (req, res) => {
     );
 
     // Populate sender before emitting
-    await message.populate('sender', 'displayName avatar');
+    await message.populate('sender', 'displayName fullName avatar');
 
     // Emit to all in conversation room
     const io = getIO();

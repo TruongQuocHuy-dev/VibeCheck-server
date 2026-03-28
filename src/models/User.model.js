@@ -62,6 +62,11 @@ const UserSchema = new mongoose.Schema(
       type: [String],
       default: [], // Extra photo URLs shown in the discovery card detail
     },
+    blockedUsers: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: 'User',
+      default: [],
+    },
     isOnline: {
       type: Boolean,
       default: false,

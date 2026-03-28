@@ -14,8 +14,8 @@ const getFeed = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('user', 'displayName avatar vibes')
-      .populate('comments.user', 'displayName avatar');
+      .populate('user', 'displayName fullName avatar vibes')
+      .populate('comments.user', 'displayName fullName avatar');
 
     const total = await Post.countDocuments();
 
@@ -45,7 +45,7 @@ const createPost = async (req, res) => {
     }
 
     const post = await Post.create({ user: userId, content, media, vibe });
-    await post.populate('user', 'displayName avatar vibes');
+    await post.populate('user', 'displayName fullName avatar vibes');
 
     return res.status(201).json({ status: 'success', data: post });
   } catch (error) {
@@ -106,7 +106,7 @@ const addComment = async (req, res) => {
     await post.save();
 
     // Return the last added comment populated
-    await post.populate('comments.user', 'displayName avatar');
+    await post.populate('comments.user', 'displayName fullName avatar');
     const newComment = post.comments[post.comments.length - 1];
 
     return res.status(201).json({ status: 'success', data: newComment });
