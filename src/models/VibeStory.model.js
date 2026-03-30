@@ -6,6 +6,8 @@ const MusicSchema = new mongoose.Schema(
     artist: { type: String, required: true },
     coverUrl: { type: String },
     previewUrl: { type: String, required: true },
+    startTime: { type: Number, default: 0 },
+    musicDuration: { type: Number, default: 20 },
   },
   { _id: false }
 );
@@ -20,12 +22,16 @@ const VibeStorySchema = new mongoose.Schema(
     },
     imageUrl: {
       type: String,
-      required: true, // Không làm mờ
+      required: false, // Cho phép đăng Vibe chỉ có chữ
     },
     caption: {
       type: String,
       trim: true,
       default: '',
+    },
+    location: {
+      type: Object, // { area: String, displayLabel: String }
+      default: null,
     },
     music: {
       type: MusicSchema,

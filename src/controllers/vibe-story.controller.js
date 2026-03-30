@@ -9,10 +9,10 @@ const { success } = require('../utils/apiResponse');
  */
 const createVibeStory = catchAsync(async (req, res, next) => {
   const userId = req.user.id;
-  const { caption, musicStr } = req.body;
+  const { caption, musicStr, locationStr } = req.body;
 
-  if (!req.file) {
-    return next(new AppError('Ảnh (imageUrl) là bắt buộc để tạo Vibe.', 400));
+  if (!req.file && (!caption || caption.trim() === '')) {
+    return next(new AppError('Vui lòng chọn ảnh hoặc nhập nội dung để đăng Vibe.', 400));
   }
 
   let music = null;
@@ -24,11 +24,21 @@ const createVibeStory = catchAsync(async (req, res, next) => {
     }
   }
 
+  let location = null;
+  if (locationStr) {
+    try {
+      location = JSON.parse(locationStr);
+    } catch (e) {
+      console.warn('Could not parse location payload:', locationStr);
+    }
+  }
+
   const story = await VibeStory.create({
     author: userId,
     imageUrl: req.file.path, // Cdn url from Cloudinary via multer
     caption: caption || '',
     music,
+    location,
   });
 
   return success(res, { story }, 201, 'Tạo Vibe thành công.');
@@ -90,6 +100,7 @@ const getFeed = catchAsync(async (req, res, next) => {
       imageUrl: st.imageUrl,
       caption: st.caption,
       music: st.music,
+      location: st.location,
       createdAt: st.createdAt,
       expiresAt: st.expiresAt,
     });
