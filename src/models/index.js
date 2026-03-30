@@ -6,5 +6,7 @@ const Message = require('./Message.model');
 const Post = require('./Post.model');
 const VibeStory = require('./VibeStory.model');
 const UserReport = require('./UserReport.model');
+const StoryReaction = require('./StoryReaction.model');
+const StoryView = require('./StoryView.model');
 
-module.exports = { User, VibeTag, Swipe, Conversation, Message, Post, VibeStory, UserReport };
+module.exports = { User, VibeTag, Swipe, Conversation, Message, Post, VibeStory, UserReport, StoryReaction, StoryView };

@@ -40,7 +40,6 @@ const VibeStorySchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // Default 24 hours like Instagram story
-      index: { expires: '1m' }, // MongoDB TTL index to auto delete expired stories
     },
   },
   { timestamps: true }

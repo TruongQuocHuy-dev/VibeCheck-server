@@ -19,8 +19,13 @@ const messageSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['text', 'image'],
+      enum: ['text', 'image', 'story_reply'],
       default: 'text',
+    },
+    storyReference: {
+      storyId: { type: mongoose.Schema.Types.ObjectId, ref: 'VibeStory' },
+      imageUrl: String,
+      caption: String,
     },
     readBy: [
       {
