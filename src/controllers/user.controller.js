@@ -14,22 +14,30 @@ const updateProfile = catchAsync(async (req, res, next) => {
 
   if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
 
-  if (!displayName || !fullName || !birthYear || !gender) {
-    return next(new AppError('Vui lòng cung cấp họ tên, biệt danh, giới tính và năm sinh.', 400));
-  }
-
-  if (!['male', 'female'].includes(gender)) {
-    return next(new AppError('Giới tính không hợp lệ. Chỉ chấp nhận male hoặc female.', 400));
-  }
-
+  // Find the user first to prepare for partial update
   const user = await User.findById(userId);
   if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
 
-  user.displayName = displayName;
+  // Update only provided fields
+  if (displayName !== undefined) user.displayName = displayName;
   if (fullName !== undefined) user.fullName = fullName;
-  user.gender = gender;
-  user.birthYear = Number(birthYear);
-  user.isProfileComplete = true; // Profiling complete
+  
+  if (gender !== undefined) {
+    if (!['male', 'female'].includes(gender)) {
+      return next(new AppError('Giới tính không hợp lệ. Chỉ chấp nhận male hoặc female.', 400));
+    }
+    user.gender = gender;
+  }
+  
+  if (birthYear !== undefined) {
+    user.birthYear = Number(birthYear);
+  }
+
+  // Ensure overall profile is considered complete if all required fields are now present
+  if (user.displayName && user.fullName && user.gender && user.birthYear) {
+    user.isProfileComplete = true; 
+  }
+  
   await user.save();
 
   return success(res, { user }, 200, 'Cập nhật thông tin hồ sơ thành công.');

@@ -11,17 +11,24 @@ const getConversations = async (req, res) => {
 
     const conversations = await Conversation.find({ participants: userId })
       .sort({ lastMessageAt: -1, updatedAt: -1 })
-      .populate('participants', 'displayName fullName avatar bio');
+      .populate('participants', 'displayName fullName avatar bio isOnline lastActive');
 
     const result = conversations.map((conv) => {
-      const otherUser = conv.participants.find(
-        (p) => p._id.toString() !== userId.toString()
+      // Robust identification of the other participant
+      let otherUser = conv.participants.find(
+        (p) => p && p._id && p._id.toString() !== userId.toString()
       );
+      
+      // Fallback if no other user found (e.g. self-chat or data inconsistency)
+      if (!otherUser && conv.participants.length > 0) {
+        otherUser = conv.participants[0];
+      }
+
       return {
         id: conv._id,
-        user: otherUser,
+        user: otherUser || { displayName: 'Vibe User', fullName: 'Vibe User', avatar: null },
         lastMessage: conv.lastMessage,
-        lastMessageAt: conv.lastMessageAt,
+        lastMessageAt: conv.lastMessageAt || conv.updatedAt, // Fallback for new matches
         unreadCount: conv.unreadCounts?.get(userId.toString()) || 0,
       };
     });
@@ -150,10 +157,12 @@ const sendMessage = async (req, res) => {
       message,
     });
 
-    // Also push notification to offline users' personal rooms
-    for (const pid of otherParticipants) {
+    // Also push notification/update to all participants in their personal rooms
+    const allParticipants = conversation.participants;
+    for (const pid of allParticipants) {
       io.to(`user:${pid}`).emit('message_notification', {
         conversationId,
+        message,
         sender: { _id: userId },
         preview: content.slice(0, 60),
       });
