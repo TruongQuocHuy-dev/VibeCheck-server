@@ -19,7 +19,7 @@ const messageSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['text', 'image', 'story_reply'],
+      enum: ['text', 'image', 'video', 'story_reply'],
       default: 'text',
     },
     storyReference: {
@@ -27,12 +27,39 @@ const messageSchema = new mongoose.Schema(
       imageUrl: String,
       caption: String,
     },
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Message',
+    },
+    reactions: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        emoji: String,
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    mediaUrl: String,
+    mediaType: {
+      type: String,
+      enum: ['image', 'video'],
+    },
     readBy: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
       },
     ],
+    deletedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    isRecalled: {
+      status: { type: Boolean, default: false },
+      by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      at: { type: Date },
+    },
   },
   { timestamps: true }
 );

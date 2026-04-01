@@ -40,6 +40,21 @@ const initSocket = (httpServer) => {
       console.log(`📥 ${userId} joined conversation:${conversationId}`);
     });
 
+    // Typing indicators
+    socket.on('typing', (conversationId) => {
+      socket.to(`conversation:${conversationId}`).emit('user_typing', {
+        conversationId,
+        userId,
+      });
+    });
+
+    socket.on('stop_typing', (conversationId) => {
+      socket.to(`conversation:${conversationId}`).emit('user_stop_typing', {
+        conversationId,
+        userId,
+      });
+    });
+
     // Leave a conversation room
     socket.on('leave_conversation', (conversationId) => {
       socket.leave(`conversation:${conversationId}`);
