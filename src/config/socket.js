@@ -105,13 +105,26 @@ const notifyMatchesStatus = async (userId, isOnline, lastActive) => {
       });
     });
 
-    matchIds.forEach((matchId) => {
-      io.to(`user:${matchId}`).emit('status_update', {
-        userId,
-        isOnline,
-        lastActive,
-      });
-    });
+    // Filter out block relationships
+    const user = await User.findById(userId).select('blockedUsers');
+    const myBlocked = new Set(user?.blockedUsers?.map(id => id.toString()) || []);
+
+    const matchIdArray = Array.from(matchIds);
+    for (const matchId of matchIdArray) {
+      // Check if target blocked me
+      const targetUser = await User.findById(matchId).select('blockedUsers').lean();
+      const targetBlockedMe = targetUser?.blockedUsers?.some(id => id.toString() === userId.toString());
+      
+      const isBlocked = myBlocked.has(matchId) || targetBlockedMe;
+
+      if (!isBlocked) {
+        io.to(`user:${matchId}`).emit('status_update', {
+          userId,
+          isOnline,
+          lastActive,
+        });
+      }
+    }
   } catch (err) {
     console.error('Notify matches status error:', err);
   }

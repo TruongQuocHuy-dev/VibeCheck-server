@@ -59,7 +59,10 @@ const createSwipe = async (req, res) => {
         if (!conversation) {
           const createdConversation = await Conversation.create({
             participants: [swiperId, swipedId],
-            unreadCounts: { [swiperId]: 0, [swipedId]: 0 },
+            unreadCounts: [
+              { userId: swiperId, count: 0 },
+              { userId: swipedId, count: 0 }
+            ],
           });
           conversation = { _id: createdConversation._id };
         }
@@ -136,18 +139,38 @@ const getMatches = async (req, res) => {
       .sort({ lastMessageAt: -1 })
       .populate('participants', 'fullName displayName avatar bio vibes isOnline lastActive');
 
-    const matches = conversations.map((conv) => {
-      const otherUser = conv.participants.find(
-        (p) => p._id.toString() !== userId.toString()
-      );
-      return {
-        conversationId: conv._id,
-        user: otherUser,
-        lastMessage: conv.lastMessage,
-        lastMessageAt: conv.lastMessageAt,
-        unreadCount: conv.unreadCounts?.get(userId.toString()) || 0,
-      };
-    });
+    const [currentUser, usersBlockedMe] = await Promise.all([
+      User.findById(userId).select('blockedUsers').lean(),
+      User.find({ blockedUsers: userId }).select('_id').lean(),
+    ]);
+
+    const blockedByMeIds = (currentUser?.blockedUsers || []).map((id) => id.toString());
+    const blockedMeIds = usersBlockedMe.map((user) => user._id.toString());
+    const blockedSet = new Set([...blockedByMeIds, ...blockedMeIds]);
+
+    const matches = conversations
+      .map((conv) => {
+        const otherUser = conv.participants.find(
+          (p) => p && p._id && p._id.toString() !== userId.toString()
+        );
+        
+        if (!otherUser) return null;
+        if (blockedSet.has(otherUser._id.toString())) return null;
+
+        // Get unread count from the array (defensive: check if array)
+        const counts = Array.isArray(conv.unreadCounts) ? conv.unreadCounts : [];
+        const unreadInfo = counts.find(u => u.userId?.toString() === userId.toString());
+        const unreadCount = unreadInfo ? unreadInfo.count : 0;
+
+        return {
+          conversationId: conv._id,
+          user: otherUser,
+          lastMessage: conv.lastMessage,
+          lastMessageAt: conv.lastMessageAt,
+          unreadCount,
+        };
+      })
+      .filter(Boolean);
 
     return res.status(200).json({ status: 'success', data: matches });
   } catch (error) {

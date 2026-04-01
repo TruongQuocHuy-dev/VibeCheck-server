@@ -215,25 +215,25 @@ const replyToVibeStory = catchAsync(async (req, res, next) => {
     readBy: [userId],
   });
 
-  // Cập nhật conversation
-  const unreadCountUpdates = {};
+  // Cập nhật conversation (defensive: handle array structure)
+  if (!Array.isArray(conversation.unreadCounts)) {
+    conversation.unreadCounts = [];
+  }
+
   conversation.participants.forEach((pid) => {
     if (pid.toString() !== userId) {
-      const currentCount = conversation.unreadCounts?.get(pid.toString()) || 0;
-      unreadCountUpdates[`unreadCounts.${pid.toString()}`] = currentCount + 1;
+      const unreadIndex = conversation.unreadCounts.findIndex(u => u.userId?.toString() === pid.toString());
+      if (unreadIndex > -1) {
+        conversation.unreadCounts[unreadIndex].count += 1;
+      } else {
+        conversation.unreadCounts.push({ userId: pid, count: 1 });
+      }
     }
   });
 
-  await Conversation.updateOne(
-    { _id: conversationId },
-    {
-      $set: {
-        lastMessage: content,
-        lastMessageAt: new Date(),
-        ...unreadCountUpdates,
-      },
-    }
-  );
+  conversation.lastMessage = content;
+  conversation.lastMessageAt = new Date();
+  await conversation.save();
 
   await message.populate('sender', 'displayName fullName avatar');
 

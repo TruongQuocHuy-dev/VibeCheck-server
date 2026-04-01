@@ -17,11 +17,30 @@ const conversationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    unreadCounts: {
-      type: Map,
-      of: Number,
-      default: {},
-    },
+    pinnedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
+    clearedBy: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        clearedAt: { type: Date, default: Date.now },
+      },
+    ],
+    unreadCounts: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        count: { type: Number, default: 0 },
+      },
+    ],
+    blockedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -6,6 +6,8 @@ const {
   sendMessage,
   toggleReaction,
   markConversationAsRead,
+  togglePinConversation,
+  markAsUnread,
   clearConversation,
   getConversationMedia,
 } = require('../controllers/conversation.controller');
@@ -18,6 +20,18 @@ router.use(authenticate);
  * Get chat list for the current user
  */
 router.get('/', getConversations);
+
+/**
+ * PATCH /api/conversations/:id/pin
+ * Toggle pin status for the current user
+ */
+router.patch('/:id/pin', togglePinConversation);
+
+/**
+ * PATCH /api/conversations/:id/unread
+ * Mark conversation as unread for the current user
+ */
+router.patch('/:id/unread', markAsUnread);
 
 /**
  * POST /api/conversations/:id/read

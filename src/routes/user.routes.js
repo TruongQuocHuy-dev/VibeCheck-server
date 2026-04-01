@@ -8,6 +8,8 @@ const {
   updateBio,
   addPhoto,
   deletePhoto,
+  blockUser,
+  unblockUser,
 } = require('../controllers/user.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
 const { upload } = require('../config/upload.config');
@@ -40,6 +42,12 @@ router.post('/photos', upload.single('photo'), addPhoto);
 
 /** DELETE /api/users/photos — Remove extra photo */
 router.delete('/photos', deletePhoto);
+
+/** POST /api/users/block */
+router.post('/block', blockUser);
+
+/** POST /api/users/unblock */
+router.post('/unblock', unblockUser);
 
 module.exports = router;
 

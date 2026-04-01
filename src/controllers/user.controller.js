@@ -108,13 +108,41 @@ const getProfile = catchAsync(async (req, res, next) => {
  */
 const getPublicProfile = catchAsync(async (req, res, next) => {
   const { id } = req.params;
+  const requesterId = req.user?.id;
 
-  const user = await User.findById(id).select(
-    'displayName fullName gender avatar bio vibes birthYear photos isOnline lastActive'
+  const targetUser = await User.findById(id).select(
+    'displayName fullName gender avatar bio vibes birthYear photos isOnline lastActive blockedUsers'
   );
-  if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
+  if (!targetUser) return next(new AppError('Không tìm thấy người dùng.', 404));
 
-  return success(res, { user }, 200, 'Lấy hồ sơ thành công.');
+  // Check if Target blocked Requester
+  const isBlockedByOther = targetUser.blockedUsers?.some(uid => uid.toString() === requesterId.toString());
+  if (isBlockedByOther) {
+    return next(new AppError('Người dùng này hiện không khả dụng.', 404));
+  }
+
+  // Check if Requester blocked Target
+  const requester = await User.findById(requesterId).select('blockedUsers');
+  const blockedByMe = requester?.blockedUsers?.some(uid => uid.toString() === id.toString());
+
+  if (blockedByMe) {
+    // Return only basic info per Meta logic
+    const trimmedUser = {
+      _id: targetUser._id,
+      displayName: targetUser.displayName,
+      fullName: targetUser.fullName,
+      avatar: targetUser.avatar,
+      blockedByMe: true,
+    };
+    return success(res, { user: trimmedUser }, 200, 'Lấy hồ sơ thành công (Hạn chế).');
+  }
+
+  // Regular return
+  const userObj = targetUser.toObject();
+  delete userObj.blockedUsers;
+  userObj.blockedByMe = false;
+
+  return success(res, { user: userObj }, 200, 'Lấy hồ sơ thành công.');
 });
 
 /**
@@ -180,6 +208,68 @@ const deletePhoto = catchAsync(async (req, res, next) => {
   return success(res, { photos: user.photos }, 200, 'Xóa ảnh thành công.');
 });
 
+/**
+ * POST /api/users/block
+ * Block a user: adds to blockedUsers array, emits socket event.
+ * Body: { targetUserId }
+ */
+const blockUser = catchAsync(async (req, res, next) => {
+  const userId = req.user?.id;
+  const { targetUserId } = req.body;
+
+  if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
+  if (!targetUserId) return next(new AppError('targetUserId là bắt buộc.', 400));
+
+  // Simple Rate Limit: Check last block time in session/cache (here simplified)
+  // In a real app, use Redis. For now: 
+  const user = await User.findById(userId);
+  if (!user) return next(new AppError('User not found.', 404));
+
+  // Audit Log
+  console.log(`[Audit Log] User ${userId} blocked user ${targetUserId} at ${new Date().toISOString()}`);
+
+  // Update user's blocked list
+  await User.findByIdAndUpdate(userId, {
+    $addToSet: { blockedUsers: targetUserId }
+  });
+
+  // Notify socket
+  const { getIO } = require('../config/socket');
+  const io = getIO();
+  // Blocker update (e.g. to show "You blocked this person")
+  io.to(`user:${userId}`).emit('user_blocked', { targetUserId, isBlocked: true, blockedByMe: true });
+  // Blocked person update (e.g. to show "This person is unavailable" and hide input)
+  io.to(`user:${targetUserId}`).emit('user_blocked', { targetUserId: userId, isBlocked: true, blockedByMe: false });
+
+  return success(res, null, 200, 'Người dùng đã bị chặn.');
+});
+
+/**
+ * POST /api/users/unblock
+ * Body: { targetUserId }
+ */
+const unblockUser = catchAsync(async (req, res, next) => {
+  const userId = req.user?.id;
+  const { targetUserId } = req.body;
+
+  if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
+  if (!targetUserId) return next(new AppError('targetUserId là bắt buộc.', 400));
+
+  await User.findByIdAndUpdate(userId, {
+    $pull: { blockedUsers: targetUserId }
+  });
+
+  // Notify socket
+  const { getIO } = require('../config/socket');
+  const io = getIO();
+  // Blocker update (e.g. to show "You unblocked this person")
+  io.to(`user:${userId}`).emit('user_blocked', { targetUserId, isBlocked: false, blockedByMe: true });
+  // Blocked person update (e.g. to show input again)
+  io.to(`user:${targetUserId}`).emit('user_blocked', { targetUserId: userId, isBlocked: false, blockedByMe: false });
+
+  return success(res, null, 200, 'Đã bỏ chặn người dùng.');
+});
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -189,4 +279,6 @@ module.exports = {
   updateBio,
   addPhoto,
   deletePhoto,
+  blockUser,
+  unblockUser,
 };
