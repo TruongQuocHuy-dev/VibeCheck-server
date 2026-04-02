@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { chatUpload } = require('../config/upload.config');
-const { uploadMedia } = require('../controllers/media.controller');
+const { uploadFile } = require('../controllers/upload.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
 
-// POST /api/media/upload
+// POST /api/upload
 // Note: 'file' is the field name expected in the multipart/form-data
-router.post('/upload', authenticate, chatUpload.single('file'), uploadMedia);
+router.post('/', authenticate, chatUpload.single('file'), uploadFile);
 
 module.exports = router;

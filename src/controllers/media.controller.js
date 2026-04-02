@@ -3,21 +3,22 @@
  */
 const uploadMedia = async (req, res) => {
   try {
-    // In a real app, we would use multer and an upload service here.
-    // For now, we simulate a successful upload and return a placeholder URL.
-    
-    // const file = req.file;
-    // if (!file) return res.status(400).json({ status: 'fail', message: 'No file uploaded.' });
-    
-    // Placeholder image URL
-    const placeholderUrl = 'https://picsum.photos/800/1200';
-    
+    if (!req.file) {
+      return res.status(400).json({ status: 'fail', message: 'No file uploaded.' });
+    }
+
+    // req.file is populated by multer with Cloudinary information from chatUpload
+    const fileUrl = req.file.path;
+    const publicId = req.file.filename;
+
     return res.status(200).json({
       status: 'success',
       data: {
-        url: placeholderUrl,
-        type: req.body.type || 'image',
-      }
+        url: fileUrl,
+        publicId: publicId,
+        type: req.file.mimetype.startsWith('image') ? 'image' : 
+              (req.file.mimetype.startsWith('audio') ? 'audio' : 'video'),
+      },
     });
   } catch (error) {
     console.error('uploadMedia error:', error);

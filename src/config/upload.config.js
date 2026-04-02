@@ -14,9 +14,24 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'vibecheck_profiles',
+    allowed_formats: ['jpg', 'png', 'jpeg'],
   },
 });
 
 const upload = multer({ storage: storage });
 
-module.exports = { upload, cloudinary };
+// Storage for chat media (supports images and audio via 'auto' resource type)
+const chatStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'vibecheck_chat',
+    resource_type: 'auto', // Important for audio/video support
+  },
+});
+
+const chatUpload = multer({ 
+  storage: chatStorage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+module.exports = { upload, chatUpload, cloudinary };

@@ -14,12 +14,12 @@ const messageSchema = new mongoose.Schema(
     },
     content: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
     },
     type: {
       type: String,
-      enum: ['text', 'image', 'video', 'story_reply'],
+      enum: ['text', 'image', 'video', 'audio', 'story_reply'],
       default: 'text',
     },
     storyReference: {
@@ -39,10 +39,18 @@ const messageSchema = new mongoose.Schema(
       },
     ],
     mediaUrl: String,
+    publicId: String,
     mediaType: {
       type: String,
-      enum: ['image', 'video'],
+      enum: ['image', 'video', 'audio'],
     },
+    mediaList: [
+      {
+        url: { type: String, required: true },
+        publicId: { type: String, required: true },
+        mediaType: { type: String, enum: ['image', 'video', 'audio'], required: true },
+      },
+    ],
     readBy: [
       {
         type: mongoose.Schema.Types.ObjectId,

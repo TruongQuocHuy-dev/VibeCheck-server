@@ -1,5 +1,6 @@
 const { Conversation, Message, User } = require('../models');
 const { getIO } = require('../config/socket');
+const { cloudinary } = require('../config/upload.config');
 
 /**
  * GET /api/conversations
@@ -154,10 +155,30 @@ const sendMessage = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id: conversationId } = req.params;
-    const { content, type = 'text', replyToId, mediaUrl, mediaType } = req.body;
+    const { content, type = 'text', replyToId, media, mediaList: rootMediaList } = req.body;
+    
+    // Support mediaList from root or nested inside media object
+    const finalMediaList = Array.isArray(rootMediaList) ? rootMediaList : (Array.isArray(media?.mediaList) ? media.mediaList : []);
+    const mediaUrl = media?.uri || req.body.mediaUrl || media?.url;
+    
+    // Only set mediaType if there's actually media, and ensure it matches the enum
+    let mediaType = media?.type || req.body.mediaType;
+    if (!['image', 'video', 'audio'].includes(mediaType)) {
+      mediaType = (type !== 'text' && ['image', 'video', 'audio'].includes(type)) ? type : undefined;
+    }
+    
+    const publicId = media?.publicId || req.body.publicId;
 
-    if (!content) {
-      return res.status(400).json({ status: 'fail', message: 'content is required.' });
+    console.log('--- SEND MESSAGE DEBUG ---', { 
+      content, 
+      type, 
+      hasMedia: !!media, 
+      mediaListCount: finalMediaList.length,
+      mediaUri: mediaUrl 
+    });
+
+    if (!content && !mediaUrl && finalMediaList.length === 0 && type === 'text') {
+      return res.status(400).json({ status: 'fail', message: 'content or media is required.' });
     }
 
     // Verify user is participant
@@ -199,6 +220,8 @@ const sendMessage = async (req, res) => {
       replyTo: replyToId,
       mediaUrl,
       mediaType,
+      publicId,
+      mediaList: finalMediaList,
       readBy: [userId],
     });
 
@@ -457,6 +480,40 @@ const deleteMessage = async (req, res) => {
         at: new Date(),
       };
       await message.save();
+
+      // Cloudinary deletion logic
+      try {
+        const publicIdsToDestroy = [];
+        // Single media
+        if (message.publicId) {
+          publicIdsToDestroy.push({
+            id: message.publicId,
+            resourceType: (message.mediaType === 'audio' || message.mediaType === 'video') ? 'video' : 'image'
+          });
+        }
+        // Multi-media list
+        if (Array.isArray(message.mediaList)) {
+          message.mediaList.forEach(m => {
+            if (m.publicId) {
+              publicIdsToDestroy.push({
+                id: m.publicId,
+                resourceType: (m.mediaType === 'audio' || m.mediaType === 'video') ? 'video' : 'image'
+              });
+            }
+          });
+        }
+
+        if (publicIdsToDestroy.length > 0) {
+          console.log(`[Cloudinary] Intent to destroy ${publicIdsToDestroy.length} assets:`, publicIdsToDestroy);
+          // Destroy all in parallel
+          await Promise.all(publicIdsToDestroy.map(asset => 
+            cloudinary.uploader.destroy(asset.id, { resource_type: asset.resourceType })
+              .catch(err => console.error(`Failed to destroy ${asset.id} (${asset.resourceType}):`, err))
+          ));
+        }
+      } catch (cloudinaryErr) {
+        console.error('Cloudinary cleanup error:', cloudinaryErr);
+      }
 
       // Update conversation preview if this was the latest message
       const conversation = await Conversation.findById(message.conversationId);

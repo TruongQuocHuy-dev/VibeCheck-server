@@ -207,14 +207,19 @@ const getCandidates = async (req, res) => {
       baseUserFilter.gender = filterGender;
     }
 
-    const [currentUser, usersBlockedMe] = await Promise.all([
+    const [currentUser, usersBlockedMe, conversations] = await Promise.all([
       User.findById(userId).select('blockedUsers').lean(),
       User.find({ blockedUsers: userId }).select('_id').lean(),
+      Conversation.find({ participants: userId }).select('participants').lean(),
     ]);
 
     const blockedByMeIds = (currentUser?.blockedUsers || []).map((id) => id.toString());
     const blockedMeIds = usersBlockedMe.map((user) => user._id.toString());
     const blockedSet = new Set([...blockedByMeIds, ...blockedMeIds]);
+
+    const matchedUserIds = conversations.flatMap(conv => 
+      conv.participants.filter(p => p && p.toString() !== userId.toString())
+    ).map(id => id.toString());
 
     // Get all users this user already swiped
     const swipes = await Swipe.find({ swiper: userId }).select('swiped type updatedAt').lean();
@@ -249,6 +254,7 @@ const getCandidates = async (req, res) => {
       ...recyclableDislikedIds,
       ...blockedByMeIds,
       ...blockedMeIds,
+      ...matchedUserIds,
       userId.toString(),
     ];
 
@@ -326,10 +332,11 @@ const getCandidatesEstimate = async (req, res) => {
       baseUserFilter.gender = filterGender;
     }
 
-    const [currentUser, usersBlockedMe, swipes] = await Promise.all([
+    const [currentUser, usersBlockedMe, swipes, conversations] = await Promise.all([
       User.findById(userId).select('blockedUsers').lean(),
       User.find({ blockedUsers: userId }).select('_id').lean(),
       Swipe.find({ swiper: userId }).select('swiped type updatedAt').lean(),
+      Conversation.find({ participants: userId }).select('participants').lean(),
     ]);
 
     const blockedByMeIds = (currentUser?.blockedUsers || []).map((id) => id.toString());
@@ -355,11 +362,16 @@ const getCandidatesEstimate = async (req, res) => {
       }
     });
 
+    const matchedUserIds = conversations.flatMap(conv => 
+      conv.participants.filter(p => p && p.toString() !== userId.toString())
+    ).map(id => id.toString());
+
     const excludeIds = [
       ...likedIds,
       ...recentDislikedIds,
       ...blockedByMeIds,
       ...blockedMeIds,
+      ...matchedUserIds,
       userId.toString(),
     ];
 
