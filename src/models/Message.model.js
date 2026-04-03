@@ -57,6 +57,12 @@ const messageSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
+    deliveredBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
     deletedBy: [
       {
         type: mongoose.Schema.Types.ObjectId,

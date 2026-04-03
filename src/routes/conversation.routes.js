@@ -10,6 +10,7 @@ const {
   markAsUnread,
   clearConversation,
   getConversationMedia,
+  markAsDelivered,
 } = require('../controllers/conversation.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
 
@@ -53,11 +54,13 @@ router.post('/:id/messages', sendMessage);
 
 router.post('/messages/:messageId/reaction', toggleReaction);
 
-/**
- * DELETE /api/conversations/:id/messages
- * Clear all messages in conversation
- */
 router.delete('/:id/messages', clearConversation);
+
+/**
+ * POST /api/conversations/messages/:id/delivered
+ * Mark message as delivered
+ */
+router.post('/messages/:id/delivered', markAsDelivered);
 
 /**
  * GET /api/conversations/:id/media

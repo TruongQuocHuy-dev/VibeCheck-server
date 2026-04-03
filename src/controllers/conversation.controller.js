@@ -62,7 +62,9 @@ const getConversations = async (req, res) => {
       result.push({
         id: conv._id,
         user: otherUser || { displayName: 'Vibe User', fullName: 'Vibe User', avatar: null },
-        lastMessage: latestMessage ? latestMessage.content : (conv.lastMessageAt > clearedAt ? conv.lastMessage : ''),
+        lastMessage: latestMessage ? 
+          (latestMessage.isRecalled?.status ? 'Tin nhắn đã được thu hồi' : latestMessage.content) : 
+          (conv.lastMessageAt > clearedAt ? conv.lastMessage : ''),
         lastMessageAt: latestMessage ? latestMessage.createdAt : (conv.lastMessageAt || conv.updatedAt),
         unreadCount,
         isPinned,
@@ -223,6 +225,7 @@ const sendMessage = async (req, res) => {
       publicId,
       mediaList: finalMediaList,
       readBy: [userId],
+      deliveredBy: [userId],
     });
 
     // Update conversation last message and increment unread for other participants (defensive)
@@ -479,6 +482,7 @@ const deleteMessage = async (req, res) => {
         by: userId,
         at: new Date(),
       };
+      message.content = 'Tin nhắn đã được thu hồi';
       await message.save();
 
       // Cloudinary deletion logic
@@ -646,13 +650,14 @@ const getConversationMedia = async (req, res) => {
 
     const messages = await Message.find({
       conversationId,
-      type: { $in: ['image', 'video'] },
-      deletedBy: { $ne: userId }
+      type: { $in: ['image', 'video', 'audio'] },
+      deletedBy: { $ne: userId },
+      'isRecalled.status': { $ne: true }
     })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('mediaUrl mediaType createdAt');
+      .select('type mediaUrl mediaType createdAt');
 
     return res.status(200).json({
       status: 'success',
@@ -662,6 +667,32 @@ const getConversationMedia = async (req, res) => {
   } catch (error) {
     console.error('getConversationMedia error:', error);
     return res.status(500).json({ status: 'error', message: 'Internal server error.' });
+  }
+};
+
+const markAsDelivered = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id: messageId } = req.params;
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ status: 'fail' });
+
+    if (!message.deliveredBy.includes(userId)) {
+      message.deliveredBy.push(userId);
+      await message.save();
+
+      const io = getIO();
+      io.to(`conversation:${message.conversationId}`).emit('message_delivered', {
+        messageId: message._id,
+        conversationId: message.conversationId,
+        userId,
+      });
+    }
+
+    return res.status(200).json({ status: 'success' });
+  } catch (error) {
+    return res.status(500).json({ status: 'error' });
   }
 };
 
@@ -675,5 +706,6 @@ module.exports = {
   markAsUnread,
   deleteMessage,
   clearConversation,
-  getConversationMedia
+  getConversationMedia,
+  markAsDelivered
 };
