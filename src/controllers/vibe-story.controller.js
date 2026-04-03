@@ -420,9 +420,24 @@ const getStoryInteractions = catchAsync(async (req, res, next) => {
   }, 200, 'Lấy danh sách tương tác thành công.');
 });
 
+/**
+ * GET /api/vibe-stories/user/:userId
+ * Get all stories for a specific user (History)
+ */
+const getUserStories = catchAsync(async (req, res, next) => {
+  const { userId } = req.params;
+
+  const stories = await VibeStory.find({ author: userId })
+    .sort({ createdAt: -1 }) // Newest first
+    .populate('author', 'displayName fullName avatar isOnline lastActive');
+
+  return success(res, { stories }, 200, 'Lấy lịch sử Vibe thành công.');
+});
+
 module.exports = {
   createVibeStory,
   getFeed,
+  getUserStories,
   deleteVibeStory,
   replyToVibeStory,
   reactToVibeStory,

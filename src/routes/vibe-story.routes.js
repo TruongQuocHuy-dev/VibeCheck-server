@@ -1,7 +1,16 @@
 const express = require('express');
 const router = express.Router();
 
-const { createVibeStory, getFeed, deleteVibeStory, replyToVibeStory, getStoryInteractions, reactToVibeStory, recordStoryView } = require('../controllers/vibe-story.controller');
+const { 
+  createVibeStory, 
+  getFeed, 
+  getUserStories, 
+  deleteVibeStory, 
+  replyToVibeStory, 
+  getStoryInteractions, 
+  reactToVibeStory, 
+  recordStoryView 
+} = require('../controllers/vibe-story.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
 const { upload } = require('../config/upload.config'); // Multer Cloudinary storage
 
@@ -14,6 +23,13 @@ router.use(authenticate);
  * @access  Private
  */
 router.get('/feed', getFeed);
+
+/**
+ * @route   GET /api/vibe-stories/user/:userId
+ * @desc    Get all stories for a specific user (History)
+ * @access  Private
+ */
+router.get('/user/:userId', getUserStories);
 
 /**
  * @route   POST /api/vibe-stories

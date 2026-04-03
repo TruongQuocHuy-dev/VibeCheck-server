@@ -2,6 +2,7 @@ const { Server } = require('socket.io');
 const { User, Conversation } = require('../models');
 
 let io;
+const activeConnections = new Map(); // userId -> Set of socketIds
 
 /**
  * Initialize Socket.io and attach to HTTP server.
@@ -17,21 +18,30 @@ const initSocket = (httpServer) => {
 
   io.on('connection', (socket) => {
     const userId = socket.handshake.query.userId;
-    console.log(`🔌 Socket connected: ${socket.id} (userId: ${userId})`);
-
+    
     if (userId) {
+      console.log(`🔌 Socket connected: ${socket.id} (userId: ${userId})`);
+      
       // Each user joins a room identified by their userId
       socket.join(`user:${userId}`);
       
-      // Setup online status
-      setImmediate(async () => {
-        try {
-          await User.findByIdAndUpdate(userId, { isOnline: true });
-          notifyMatchesStatus(userId, true, new Date());
-        } catch (error) {
-          console.error('Socket init error:', error);
-        }
-      });
+      // Track connections for this user
+      if (!activeConnections.has(userId)) {
+        activeConnections.set(userId, new Set());
+      }
+      activeConnections.get(userId).add(socket.id);
+
+      // Only set online if this is the first connection
+      if (activeConnections.get(userId).size === 1) {
+        setImmediate(async () => {
+          try {
+            await User.findByIdAndUpdate(userId, { isOnline: true });
+            notifyMatchesStatus(userId, true, new Date());
+          } catch (error) {
+            console.error('Socket init error:', error);
+          }
+        });
+      }
     }
 
     // Join a specific conversation room
@@ -61,14 +71,26 @@ const initSocket = (httpServer) => {
     });
 
     socket.on('disconnect', async () => {
-      console.log(`❌ Socket disconnected: ${socket.id} (userId: ${userId})`);
       if (userId) {
-        try {
-          const now = new Date();
-          await User.findByIdAndUpdate(userId, { isOnline: false, lastActive: now });
-          notifyMatchesStatus(userId, false, now);
-        } catch (error) {
-          console.error('Socket disconnect error:', error);
+        console.log(`❌ Socket disconnected: ${socket.id} (userId: ${userId})`);
+        
+        const connections = activeConnections.get(userId);
+        if (connections) {
+          connections.delete(socket.id);
+          
+          // Only set offline if no more active connections
+          if (connections.size === 0) {
+            activeConnections.delete(userId);
+            try {
+              const now = new Date();
+              await User.findByIdAndUpdate(userId, { isOnline: false, lastActive: now });
+              notifyMatchesStatus(userId, false, now);
+            } catch (error) {
+              console.error('Socket disconnect error:', error);
+            }
+          } else {
+            console.log(`ℹ️ User ${userId} still has ${connections.size} active connection(s).`);
+          }
         }
       }
     });
@@ -99,7 +121,7 @@ const notifyMatchesStatus = async (userId, isOnline, lastActive) => {
     const matchIds = new Set();
     conversations.forEach((conv) => {
       conv.participants.forEach((pId) => {
-        if (pId.toString() !== userId) {
+        if (pId && pId.toString() !== userId.toString()) {
           matchIds.add(pId.toString());
         }
       });
@@ -110,22 +132,26 @@ const notifyMatchesStatus = async (userId, isOnline, lastActive) => {
     const myBlocked = new Set(user?.blockedUsers?.map(id => id.toString()) || []);
 
     const matchIdArray = Array.from(matchIds);
-    for (const matchId of matchIdArray) {
-      // Check if target blocked me
-      const targetUser = await User.findById(matchId).select('blockedUsers').lean();
-      const targetBlockedMe = targetUser?.blockedUsers?.some(id => id.toString() === userId.toString());
-      
-      const isBlocked = myBlocked.has(matchId) || targetBlockedMe;
+    if (matchIdArray.length === 0) return;
 
-      if (!isBlocked) {
-        io.to(`user:${matchId}`).emit('status_update', {
-          userId,
-          isOnline,
-          lastActive,
-        });
-      }
+    // Batch fetch all matches to check blocked status (Optimized)
+    const matchesData = await User.find({ _id: { $in: matchIdArray } })
+      .select('_id blockedUsers')
+      .lean();
+
+    for (const targetUser of matchesData) {
+      if (!targetUser) continue;
+
+      const amIBlocked = targetUser.blockedUsers?.some((id) => id.toString() === userId.toString());
+      if (amIBlocked) continue;
+
+      io.to(`user:${targetUser._id}`).emit('status_update', {
+        userId,
+        isOnline,
+        lastActive,
+      });
     }
-  } catch (err) {
-    console.error('Notify matches status error:', err);
+  } catch (error) {
+    console.error('notifyMatchesStatus error:', error);
   }
 };
