@@ -10,6 +10,7 @@ const {
   deletePhoto,
   blockUser,
   unblockUser,
+  getBlockedList,
 } = require('../controllers/user.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
 const { upload } = require('../config/upload.config');
@@ -48,6 +49,9 @@ router.post('/block', blockUser);
 
 /** POST /api/users/unblock */
 router.post('/unblock', unblockUser);
+
+/** GET /api/users/blocked-list */
+router.get('/blocked-list', getBlockedList);
 
 module.exports = router;
 

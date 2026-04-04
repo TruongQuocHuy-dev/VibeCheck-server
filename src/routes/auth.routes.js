@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, checkPhone, setPassword, login, googleLogin } = require('../controllers/auth.controller');
+const { register, checkPhone, setPassword, changePassword, login, googleLogin } = require('../controllers/auth.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
 
 /**
@@ -20,6 +20,12 @@ router.post('/register', register);
  * Authenticated new user sets their password after OTP verify
  */
 router.post('/set-password', authenticate, setPassword);
+
+/**
+ * POST /api/auth/change-password
+ * Authenticated user changes their password (requires old password)
+ */
+router.post('/change-password', authenticate, changePassword);
 
 /**
  * POST /api/auth/login

@@ -96,10 +96,12 @@ const getProfile = catchAsync(async (req, res, next) => {
   const userId = req.user?.id;
   if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
 
-  const user = await User.findById(userId).populate('vibes');
+  const user = await User.findById(userId).populate('vibes').select('+passwordHash');
   if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
 
-  return success(res, { user }, 200, 'Lấy thông tin hồ sơ thành công.');
+  const userObj = user.toObject();
+  userObj.hasPassword = !!user.passwordHash;
+  return success(res, { user: userObj }, 200, 'Lấy thông tin hồ sơ thành công.');
 });
 
 /**
@@ -270,6 +272,24 @@ const unblockUser = catchAsync(async (req, res, next) => {
   return success(res, null, 200, 'Đã bỏ chặn người dùng.');
 });
 
+/**
+ * GET /api/users/blocked-list
+ * Get users that the current user has blocked.
+ */
+const getBlockedList = catchAsync(async (req, res, next) => {
+  const userId = req.user?.id;
+  if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
+
+  const user = await User.findById(userId).populate({
+    path: 'blockedUsers',
+    select: 'fullName displayName avatar bio',
+  });
+
+  if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
+
+  return success(res, { blockedUsers: user.blockedUsers }, 200, 'Lấy danh sách chặn thành công.');
+});
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -281,4 +301,5 @@ module.exports = {
   deletePhoto,
   blockUser,
   unblockUser,
+  getBlockedList,
 };

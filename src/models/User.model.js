@@ -23,7 +23,8 @@ const UserSchema = new mongoose.Schema(
     },
     passwordHash: {
       type: String,
-      default: null, // null until user sets password after OTP verify
+      default: null,
+      select: false,
     },
     displayName: {
       type: String,

@@ -4,6 +4,7 @@ const { generateAccessToken, generateRefreshToken } = require('../utils/token');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
 const { success } = require('../utils/apiResponse');
+const { changePasswordSchema, setPasswordSchema } = require('../validators/auth.validator');
 
 /**
  * POST /api/auth/register
@@ -29,13 +30,13 @@ const register = catchAsync(async (req, res, next) => {
   }
 
   // 2. Upsert user in MongoDB (find existing or create new)
-  let user = await User.findOne({ firebaseUid: uid });
+  let user = await User.findOne({ firebaseUid: uid }).select('+passwordHash');
   let isNewUser = false;
 
   if (!user) {
     if (phone_number) {
       // 2a. Phone Flow
-      const phoneExists = await User.findOne({ phone: phone_number });
+      const phoneExists = await User.findOne({ phone: phone_number }).select('+passwordHash');
       if (phoneExists) {
         phoneExists.firebaseUid = uid;
         await phoneExists.save();
@@ -46,7 +47,7 @@ const register = catchAsync(async (req, res, next) => {
       }
     } else if (email) {
       // 2b. Google / Email Flow
-      const emailExists = await User.findOne({ email });
+      const emailExists = await User.findOne({ email }).select('+passwordHash');
       if (emailExists) {
         emailExists.firebaseUid = uid;
         await emailExists.save();
@@ -86,6 +87,7 @@ const register = catchAsync(async (req, res, next) => {
       fullName: user.fullName,
       displayName: user.displayName,
       gender: user.gender,
+      hasPassword: !!user.passwordHash,
     },
   }, 200, isNewUser ? 'Đăng ký thành công' : 'Đăng nhập thành công');
 });
@@ -115,8 +117,12 @@ const checkPhone = catchAsync(async (req, res, next) => {
  */
 const setPassword = catchAsync(async (req, res, next) => {
   const { password } = req.body;
-  if (!password || password.length < 6) {
-    return next(new AppError('Mật khẩu phải có ít nhất 6 ký tự.', 400));
+  const { error: validationError } = setPasswordSchema.validate({ 
+    newPassword: password, 
+    confirmPassword: password 
+  }); 
+  if (validationError) {
+    return next(new AppError(validationError.details[0].message, 400));
   }
 
   const userId = req.user?.id;
@@ -132,6 +138,37 @@ const setPassword = catchAsync(async (req, res, next) => {
 });
 
 /**
+ * POST /api/auth/change-password
+ * Authenticated user changes their password (requires old password).
+ */
+const changePassword = catchAsync(async (req, res, next) => {
+  const { error: validationError } = changePasswordSchema.validate(req.body);
+  if (validationError) {
+    return next(new AppError(validationError.details[0].message, 400));
+  }
+
+  const { oldPassword, newPassword } = req.body;
+
+  const userId = req.user?.id;
+  const user = await User.findById(userId).select('+passwordHash');
+  if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
+
+  // Verify old password
+  if (user.passwordHash) {
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) {
+      return next(new AppError('Mật khẩu hiện tại không chính xác.', 401));
+    }
+  }
+
+  // Set new password
+  user.passwordHash = await User.hashPassword(newPassword);
+  await user.save();
+
+  return success(res, null, 200, 'Đổi mật khẩu thành công.');
+});
+
+/**
  * POST /api/auth/login
  * Returning user logs in with phone + password.
  */
@@ -141,7 +178,7 @@ const login = catchAsync(async (req, res, next) => {
 
   // Normalize phone: strip leading 0, add +84 for searching
   const normalizedPhone = phone.startsWith('+') ? phone : `+84${phone.replace(/^0/, '')}`;
-  const user = await User.findOne({ phone: normalizedPhone });
+  const user = await User.findOne({ phone: normalizedPhone }).select('+passwordHash');
   if (!user || !user.passwordHash) {
     return next(new AppError('Số điện thoại chưa được đăng ký hoặc chưa có mật khẩu.', 401));
   }
@@ -163,6 +200,7 @@ const login = catchAsync(async (req, res, next) => {
       fullName: user.fullName,
       displayName: user.displayName,
       gender: user.gender,
+      hasPassword: !!user.passwordHash,
     },
   }, 200, 'Đăng nhập thành công');
 });
@@ -191,7 +229,7 @@ const googleLogin = catchAsync(async (req, res, next) => {
   }
 
   // Upsert user in MongoDB (find existing by email or firebaseUid/googleId)
-  let user = await User.findOne({ email });
+  let user = await User.findOne({ email }).select('+passwordHash');
   let isNewUser = false;
 
   if (!user) {
@@ -223,8 +261,9 @@ const googleLogin = catchAsync(async (req, res, next) => {
       fullName: user.fullName,
       displayName: user.displayName,
       gender: user.gender,
+      hasPassword: !!user.passwordHash,
     },
   }, 200, isNewUser ? 'Đăng ký Google thành công' : 'Đăng nhập Google thành công');
 });
 
-module.exports = { register, checkPhone, setPassword, login, googleLogin };
+module.exports = { register, checkPhone, setPassword, changePassword, login, googleLogin };
