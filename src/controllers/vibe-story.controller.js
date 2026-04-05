@@ -56,7 +56,7 @@ const createVibeStory = catchAsync(async (req, res, next) => {
 
   const story = await VibeStory.create({
     author: userId,
-    imageUrl: req.file.path, // Cdn url from Cloudinary via multer
+    imageUrl: req.file ? req.file.path : null, // Cdn url from Cloudinary via multer OR null for text-only
     caption: caption || '',
     music,
     location,
@@ -166,7 +166,12 @@ const deleteVibeStory = catchAsync(async (req, res, next) => {
     }
   }
 
-  await VibeStory.deleteOne({ _id: id });
+  // 2. Clear related interaction data (Cascading Cleanup)
+  await Promise.all([
+    StoryReaction.deleteMany({ storyId: id }),
+    StoryView.deleteMany({ storyId: id }),
+    VibeStory.deleteOne({ _id: id }),
+  ]);
 
   return success(res, null, 200, 'Xoá Vibe thành công.');
 });
