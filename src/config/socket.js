@@ -107,14 +107,25 @@ const getIO = () => {
   return io;
 };
 
-module.exports = { initSocket, getIO };
-
 /**
  * Notifies all users who have matched with `userId` about their new status.
  */
 const notifyMatchesStatus = async (userId, isOnline, lastActive) => {
   if (!io) return;
   try {
+    // 1. Fetch user data (blocked list and privacy)
+    const user = await User.findById(userId).select('blockedUsers privacySettings');
+    if (!user) return;
+
+    // Privacy Check: If showOnlineStatus is disabled, we don't broadcast "Active"
+    // EXCEPT if we are manually triggerring a hide (isOnline === undefined)
+    const isPrivacyEnabled = user.privacySettings?.showOnlineStatus === false;
+    
+    if (isPrivacyEnabled && isOnline !== undefined) {
+      // If privacy is on, we don't send regular "online/offline" updates
+      return; 
+    }
+
     const conversations = await Conversation.find({ participants: userId }).select('participants');
     
     // Get unique participant IDs (excluding the user themselves)
@@ -127,14 +138,11 @@ const notifyMatchesStatus = async (userId, isOnline, lastActive) => {
       });
     });
 
-    // Filter out block relationships
-    const user = await User.findById(userId).select('blockedUsers');
-    const myBlocked = new Set(user?.blockedUsers?.map(id => id.toString()) || []);
-
+    const myBlocked = new Set(user.blockedUsers?.map(id => id.toString()) || []);
     const matchIdArray = Array.from(matchIds);
     if (matchIdArray.length === 0) return;
 
-    // Batch fetch all matches to check blocked status (Optimized)
+    // Batch fetch all matches to check blocked status
     const matchesData = await User.find({ _id: { $in: matchIdArray } })
       .select('_id blockedUsers')
       .lean();
@@ -147,11 +155,13 @@ const notifyMatchesStatus = async (userId, isOnline, lastActive) => {
 
       io.to(`user:${targetUser._id}`).emit('status_update', {
         userId,
-        isOnline,
-        lastActive,
+        isOnline: isPrivacyEnabled ? undefined : isOnline,
+        lastActive: isPrivacyEnabled ? undefined : lastActive,
       });
     }
   } catch (error) {
     console.error('notifyMatchesStatus error:', error);
   }
 };
+
+module.exports = { initSocket, getIO, notifyMatchesStatus };

@@ -92,7 +92,7 @@ const getFeed = catchAsync(async (req, res, next) => {
     expiresAt: { $gt: new Date() },
   })
     .sort({ createdAt: 1 })
-    .populate('author', 'displayName fullName avatar isOnline lastActive');
+    .populate('author', 'displayName fullName avatar isOnline lastActive privacySettings');
 
   // 3. Group by user ID
   const feedMap = {};
@@ -109,8 +109,8 @@ const getFeed = catchAsync(async (req, res, next) => {
           id: authorId,
           name: st.author.fullName || st.author.displayName || 'Khách',
           avatar: st.author.avatar,
-          isOnline: st.author.isOnline,
-          lastActive: st.author.lastActive,
+          isOnline: st.author.privacySettings?.showOnlineStatus === false ? undefined : st.author.isOnline,
+          lastActive: st.author.privacySettings?.showOnlineStatus === false ? undefined : st.author.lastActive,
         },
         stories: [],
       };
@@ -427,16 +427,61 @@ const getStoryInteractions = catchAsync(async (req, res, next) => {
 
 /**
  * GET /api/vibe-stories/user/:userId
- * Get all stories for a specific user (History)
+ * Get all stories for a specific user (History) with pagination
  */
 const getUserStories = catchAsync(async (req, res, next) => {
   const { userId } = req.params;
+  const currentUserId = req.user.id;
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 12; // Default 12 for 3-column grid
+  const skip = (page - 1) * limit;
 
+  // Rule: Only the author OR matched users can view stories
+  let isAllowed = currentUserId.toString() === userId.toString();
+
+  if (!isAllowed) {
+    const conversation = await Conversation.findOne({
+      participants: { $all: [currentUserId, userId] },
+    }).select('_id').lean();
+    isAllowed = !!conversation;
+  }
+
+  if (!isAllowed) {
+    // If not matched, return empty stories list silently (not error) to avoid UI crashes
+    return success(res, { 
+      stories: [],
+      pagination: { total: 0, page, limit, pages: 0, hasMore: false }
+    }, 200, 'Bạn cần Match với người dùng này để xem Vibes.');
+  }
+
+  const total = await VibeStory.countDocuments({ author: userId });
   const stories = await VibeStory.find({ author: userId })
     .sort({ createdAt: -1 }) // Newest first
-    .populate('author', 'displayName fullName avatar isOnline lastActive');
+    .skip(skip)
+    .limit(limit)
+    .populate('author', 'displayName fullName avatar isOnline lastActive privacySettings');
 
-  return success(res, { stories }, 200, 'Lấy lịch sử Vibe thành công.');
+  // Privacy Filtering
+  const filteredStories = stories.map(st => {
+    if (st.author?.privacySettings?.showOnlineStatus === false) {
+      const stObj = st.toObject();
+      delete stObj.author.isOnline;
+      delete stObj.author.lastActive;
+      return stObj;
+    }
+    return st;
+  });
+
+  return success(res, { 
+    stories: filteredStories,
+    pagination: {
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+      hasMore: skip + stories.length < total
+    }
+  }, 200, 'Lấy lịch sử Vibe thành công.');
 });
 
 module.exports = {

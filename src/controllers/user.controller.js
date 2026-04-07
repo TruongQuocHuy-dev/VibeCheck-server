@@ -2,6 +2,7 @@ const { User } = require('../models');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
 const { success } = require('../utils/apiResponse');
+const { notifyMatchesStatus } = require('../config/socket');
 
 /**
  * PATCH /api/users/profile
@@ -9,7 +10,7 @@ const { success } = require('../utils/apiResponse');
  * Sets isProfileComplete = true.
  */
 const updateProfile = catchAsync(async (req, res, next) => {
-  const { displayName, fullName, gender, birthYear } = req.body;
+  const { displayName, fullName, gender, birthYear, longitude, latitude } = req.body;
   const userId = req.user?.id;
 
   if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
@@ -31,6 +32,13 @@ const updateProfile = catchAsync(async (req, res, next) => {
   
   if (birthYear !== undefined) {
     user.birthYear = Number(birthYear);
+  }
+
+  if (longitude !== undefined && latitude !== undefined) {
+    user.location = {
+      type: 'Point',
+      coordinates: [Number(longitude), Number(latitude)], // [lng, lat]
+    };
   }
 
   // Ensure overall profile is considered complete if all required fields are now present
@@ -113,7 +121,7 @@ const getPublicProfile = catchAsync(async (req, res, next) => {
   const requesterId = req.user?.id;
 
   const targetUser = await User.findById(id).select(
-    'displayName fullName gender avatar bio vibes birthYear photos isOnline lastActive blockedUsers'
+    'displayName fullName gender avatar bio vibes birthYear photos isOnline lastActive blockedUsers location privacySettings'
   );
   if (!targetUser) return next(new AppError('Không tìm thấy người dùng.', 404));
 
@@ -141,6 +149,19 @@ const getPublicProfile = catchAsync(async (req, res, next) => {
 
   // Regular return
   const userObj = targetUser.toObject();
+  
+  // Privacy Filtering
+  if (userObj.privacySettings) {
+    if (userObj.privacySettings.showOnlineStatus === false) {
+      delete userObj.isOnline;
+      delete userObj.lastActive;
+    }
+    if (userObj.privacySettings.showDistance === false) {
+      // We keep the internal location for distance but remove it from the public view object
+      delete userObj.location;
+    }
+  }
+
   delete userObj.blockedUsers;
   userObj.blockedByMe = false;
 
@@ -166,6 +187,35 @@ const updateBio = catchAsync(async (req, res, next) => {
   if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
 
   return success(res, { bio: user.bio }, 200, 'Cập nhật bio thành công.');
+});
+
+/**
+ * PATCH /api/users/privacy
+ * Update user privacy settings.
+ */
+const updatePrivacySettings = catchAsync(async (req, res, next) => {
+  const { showOnlineStatus, showDistance, showLastActive } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) return next(new AppError('Không xác thực được người dùng.', 401));
+
+  const user = await User.findById(userId);
+  if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
+
+  if (!user.privacySettings) user.privacySettings = {};
+  
+  if (showOnlineStatus !== undefined) user.privacySettings.showOnlineStatus = showOnlineStatus;
+  if (showDistance !== undefined) user.privacySettings.showDistance = showDistance;
+  if (showLastActive !== undefined) user.privacySettings.showLastActive = showLastActive;
+
+  await user.save();
+
+  // If online status is hidden, notify matches to clear the indicator
+  if (showOnlineStatus === false) {
+    notifyMatchesStatus(userId, undefined, undefined);
+  }
+
+  return success(res, { privacySettings: user.privacySettings }, 200, 'Cập nhật quyền riêng tư thành công.');
 });
 
 /**
@@ -302,4 +352,5 @@ module.exports = {
   blockUser,
   unblockUser,
   getBlockedList,
+  updatePrivacySettings,
 };

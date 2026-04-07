@@ -11,6 +11,7 @@ const {
   blockUser,
   unblockUser,
   getBlockedList,
+  updatePrivacySettings,
 } = require('../controllers/user.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
 const { upload } = require('../config/upload.config');
@@ -31,6 +32,9 @@ router.patch('/profile', updateProfile);
 
 /** PATCH /api/users/bio — Update bio */
 router.patch('/bio', updateBio);
+
+/** PATCH /api/users/privacy — Update privacy settings */
+router.patch('/privacy', updatePrivacySettings);
 
 /** POST /api/users/vibes */
 router.post('/vibes', updateVibes);

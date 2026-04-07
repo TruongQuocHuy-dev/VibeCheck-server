@@ -76,9 +76,37 @@ const UserSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    location: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number],
+        default: [0, 0], // [longitude, latitude]
+      },
+    },
+    privacySettings: {
+      showOnlineStatus: {
+        type: Boolean,
+        default: true,
+      },
+      showDistance: {
+        type: Boolean,
+        default: true,
+      },
+      showLastActive: {
+        type: Boolean,
+        default: true,
+      },
+    },
   },
   { timestamps: true }
 );
+
+// Geo-spatial index
+UserSchema.index({ location: '2dsphere' });
 
 // Unique index for phone, only if not null
 UserSchema.index(

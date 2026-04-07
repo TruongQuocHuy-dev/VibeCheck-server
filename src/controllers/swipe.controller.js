@@ -137,7 +137,7 @@ const getMatches = async (req, res) => {
       participants: userId,
     })
       .sort({ lastMessageAt: -1 })
-      .populate('participants', 'fullName displayName avatar bio vibes isOnline lastActive');
+      .populate('participants', 'fullName displayName avatar bio vibes isOnline lastActive privacySettings');
 
     const [currentUser, usersBlockedMe] = await Promise.all([
       User.findById(userId).select('blockedUsers').lean(),
@@ -150,12 +150,19 @@ const getMatches = async (req, res) => {
 
     const matches = conversations
       .map((conv) => {
-        const otherUser = conv.participants.find(
+        let otherUser = conv.participants.find(
           (p) => p && p._id && p._id.toString() !== userId.toString()
         );
         
         if (!otherUser) return null;
         if (blockedSet.has(otherUser._id.toString())) return null;
+
+        // Privacy Filtering
+        if (otherUser.privacySettings?.showOnlineStatus === false) {
+          otherUser = otherUser.toObject ? otherUser.toObject() : { ...otherUser };
+          delete otherUser.isOnline;
+          delete otherUser.lastActive;
+        }
 
         // Get unread count from the array (defensive: check if array)
         const counts = Array.isArray(conv.unreadCounts) ? conv.unreadCounts : [];
@@ -258,30 +265,71 @@ const getCandidates = async (req, res) => {
       userId.toString(),
     ];
 
+    // 2. Fetch candidates: Priority to nearby users if currentUser has location
+    const hasLocation = currentUser?.location?.coordinates && 
+                       (currentUser.location.coordinates[0] !== 0 || currentUser.location.coordinates[1] !== 0);
+
     const recycledLimit = 5;
     const freshLimit = 20 - recycledLimit;
 
-    const freshCandidates = await User.find({
-      ...baseUserFilter,
-      _id: { $nin: freshExcludedIds },
-    })
-      .select('fullName displayName gender avatar bio vibes birthYear photos')
-      .lean()
-      .limit(freshLimit);
+    let freshCandidates = [];
+
+    if (hasLocation) {
+      // Use $nearSphere for industry-standard nearby discovery
+      freshCandidates = await User.find({
+        ...baseUserFilter,
+        _id: { $nin: freshExcludedIds },
+        location: {
+          $nearSphere: {
+            $geometry: currentUser.location,
+            $maxDistance: 50 * 1000, // Default 50km radius
+          },
+        },
+      })
+        .select('fullName displayName gender avatar bio vibes birthYear photos location privacySettings')
+        .limit(freshLimit)
+        .lean();
+    } else {
+      freshCandidates = await User.find({
+        ...baseUserFilter,
+        _id: { $nin: freshExcludedIds },
+      })
+        .select('fullName displayName gender avatar bio vibes birthYear photos location privacySettings')
+        .limit(freshLimit)
+        .lean();
+    }
 
     const recycledCandidates = recyclableDislikedIds.length
       ? await User.find({
           ...baseUserFilter,
           _id: { $in: recyclableDislikedIds },
         })
-          .select('fullName displayName gender avatar bio vibes birthYear photos')
-          .lean()
+          .select('fullName displayName gender avatar bio vibes birthYear photos location privacySettings')
           .limit(recycledLimit)
+          .lean()
       : [];
 
-    const candidates = [...freshCandidates, ...recycledCandidates].slice(0, 20);
+    const candidates = [...freshCandidates, ...recycledCandidates];
 
     const candidateIds = candidates.map((c) => c._id);
+
+    // Helper to calculate distance in KM
+    const getDistance = (loc1, loc2) => {
+      if (!loc1?.coordinates || !loc2?.coordinates) return null;
+      const [lon1, lat1] = loc1.coordinates;
+      const [lon2, lat2] = loc2.coordinates;
+      if ((lon1 === 0 && lat1 === 0) || (lon2 === 0 && lat2 === 0)) return null;
+
+      const R = 6371; // Radius of the earth in km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return (R * c).toFixed(1); // 1 decimal place
+    };
 
     const reverseLikes = await Swipe.find({
       swiper: { $in: candidateIds },
@@ -296,6 +344,9 @@ const getCandidates = async (req, res) => {
     const enrichedCandidates = candidates.map((candidate) => ({
       ...candidate,
       hasLikedMe: likedMeSet.has(candidate._id.toString()),
+      distance: candidate.privacySettings?.showDistance === false 
+        ? null 
+        : getDistance(currentUser.location, candidate.location),
     }));
 
     return res.status(200).json({ status: 'success', data: enrichedCandidates });

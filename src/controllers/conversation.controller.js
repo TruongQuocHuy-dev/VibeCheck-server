@@ -12,7 +12,7 @@ const getConversations = async (req, res) => {
 
     // Find conversations where user is a participant
     const conversations = await Conversation.find({ participants: userId })
-      .populate('participants', 'displayName fullName avatar bio isOnline lastActive');
+      .populate('participants', 'displayName fullName avatar bio isOnline lastActive privacySettings');
 
     const result = [];
 
@@ -27,6 +27,13 @@ const getConversations = async (req, res) => {
       
       if (!otherUser && conv.participants.length > 0) {
         otherUser = conv.participants[0];
+      }
+
+      // Privacy Filtering for the other participant
+      if (otherUser && otherUser.privacySettings?.showOnlineStatus === false) {
+        otherUser = otherUser.toObject();
+        delete otherUser.isOnline;
+        delete otherUser.lastActive;
       }
 
       // Check block status
