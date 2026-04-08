@@ -1,6 +1,7 @@
 const { Conversation, Message, User } = require('../models');
 const { getIO } = require('../config/socket');
 const { cloudinary } = require('../config/upload.config');
+const { createAndEmit } = require('./notification.controller');
 
 /**
  * GET /api/conversations
@@ -280,9 +281,28 @@ const sendMessage = async (req, res) => {
         conversationId,
         message,
         sender: { _id: userId },
-        preview: content.slice(0, 60),
+        preview: content ? content.slice(0, 60) : '',
       });
     }
+
+    // Persist notification for recipients (non-sender) in background
+    setImmediate(async () => {
+      try {
+        const senderUser = await User.findById(userId).select('fullName displayName avatar').lean();
+        for (const pid of otherParticipants) {
+          await createAndEmit({
+            owner: pid,
+            kind: 'message',
+            title: senderUser?.fullName || senderUser?.displayName || 'Ai đó',
+            message: content ? content.slice(0, 80) : '📷 Đã gửi một tấm ảnh',
+            avatar: senderUser?.avatar || null,
+            metadata: { conversationId, senderId: userId },
+          });
+        }
+      } catch (notifErr) {
+        console.error('[Notification] Message notification error:', notifErr);
+      }
+    });
 
     return res.status(201).json({ status: 'success', data: message });
   } catch (error) {

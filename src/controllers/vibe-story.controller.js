@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
-const { VibeStory, Conversation, Message, StoryReaction, StoryView } = require('../models');
+const { VibeStory, Conversation, Message, StoryReaction, StoryView, User } = require('../models');
 const { getIO } = require('../config/socket');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
 const { success } = require('../utils/apiResponse');
 const { cloudinary } = require('../config/upload.config');
+const { createAndEmit } = require('./notification.controller');
 
 /**
  * Helper to get Cloudinary public_id from URL
@@ -56,10 +57,34 @@ const createVibeStory = catchAsync(async (req, res, next) => {
 
   const story = await VibeStory.create({
     author: userId,
-    imageUrl: req.file ? req.file.path : null, // Cdn url from Cloudinary via multer OR null for text-only
+    imageUrl: req.file ? req.file.path : null,
     caption: caption || '',
     music,
     location,
+  });
+
+  // Notify all matches about new story (background)
+  setImmediate(async () => {
+    try {
+      const author = await User.findById(userId).select('fullName displayName avatar').lean();
+      const conversations = await Conversation.find({ participants: userId }).select('participants').lean();
+      const matchIds = conversations
+        .flatMap(c => c.participants.map(p => p.toString()))
+        .filter(id => id !== userId.toString());
+      const uniqueMatchIds = [...new Set(matchIds)];
+      await Promise.all(uniqueMatchIds.map(matchId =>
+        createAndEmit({
+          owner: matchId,
+          kind: 'story',
+          title: author?.fullName || author?.displayName || 'Ai đó',
+          message: caption ? `"​${caption.slice(0, 60)}"` : 'Đã đăng một Vibe mới!',
+          avatar: author?.avatar || null,
+          metadata: { storyId: story._id, authorId: userId },
+        })
+      ));
+    } catch (notifErr) {
+      console.error('[Notification] Story notification error:', notifErr);
+    }
   });
 
   return success(res, { story }, 201, 'Tạo Vibe thành công.');
@@ -311,13 +336,30 @@ const reactToVibeStory = catchAsync(async (req, res, next) => {
     { upsert: true, new: true }
   );
 
-  // Emit event thông báo cho tác giả (vẫn giữ socket để update UI realtime)
+  // Emit realtime event
   const io = getIO();
   io.to(`user:${story.author.toString()}`).emit('story_interaction', {
     storyId: id,
     type: 'reaction',
     sender: { _id: userId },
     content,
+  });
+
+  // Persist notification for story author (background)
+  setImmediate(async () => {
+    try {
+      const reactor = await User.findById(userId).select('fullName displayName avatar').lean();
+      await createAndEmit({
+        owner: story.author,
+        kind: 'like',
+        title: reactor?.fullName || reactor?.displayName || 'Ai đó',
+        message: `Đã thả ${content} vào Vibe của bạn`,
+        avatar: reactor?.avatar || null,
+        metadata: { storyId: id, reactorId: userId },
+      });
+    } catch (notifErr) {
+      console.error('[Notification] Story reaction notification error:', notifErr);
+    }
   });
 
   return success(res, { reaction }, 201, 'Đã thả biểu cảm.');

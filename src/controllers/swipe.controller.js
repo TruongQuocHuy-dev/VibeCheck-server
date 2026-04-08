@@ -1,5 +1,6 @@
 const { Swipe, Conversation, User, UserReport } = require('../models');
 const { getIO } = require('../config/socket');
+const { createAndEmit } = require('./notification.controller');
 
 const getAgeFiltersFromQuery = (query) => {
   const minAgeParam = Number(query.minAge);
@@ -84,6 +85,38 @@ const createSwipe = async (req, res) => {
           swipedUser,
           swiperUser,
         };
+
+        // Create DB notifications for both matched users
+        setImmediate(async () => {
+          try {
+            await Promise.all([
+              createAndEmit({
+                owner: swiperId,
+                kind: 'match',
+                title: 'Bạn có match mới! 🎉',
+                message: `Bạn và ${swipedUser?.fullName || swipedUser?.displayName} đã match với nhau!`,
+                avatar: swipedUser?.avatar || null,
+                metadata: {
+                  conversationId: conversation._id,
+                  matchedUser: { _id: swipedUser?._id, fullName: swipedUser?.fullName, displayName: swipedUser?.displayName, avatar: swipedUser?.avatar },
+                },
+              }),
+              createAndEmit({
+                owner: swipedId,
+                kind: 'match',
+                title: 'Bạn có match mới! 🎉',
+                message: `Bạn và ${swiperUser?.fullName || swiperUser?.displayName} đã match với nhau!`,
+                avatar: swiperUser?.avatar || null,
+                metadata: {
+                  conversationId: conversation._id,
+                  matchedUser: { _id: swiperUser?._id, fullName: swiperUser?.fullName, displayName: swiperUser?.displayName, avatar: swiperUser?.avatar },
+                },
+              }),
+            ]);
+          } catch (notifErr) {
+            console.error('[Notification] Match notification error:', notifErr);
+          }
+        });
       }
     }
 

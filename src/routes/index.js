@@ -5,20 +5,20 @@ const userRoutes = require('./user.routes');
 const vibeRoutes = require('./vibe.routes');
 const swipeRoutes = require('./swipe.routes');
 const conversationRoutes = require('./conversation.routes');
-const postRoutes = require('./post.routes');
 const vibeStoryRoutes = require('./vibe-story.routes');
 const mediaRoutes = require('./media.routes');
 const messageRoutes = require('./message.routes');
+const notificationRoutes = require('./notification.routes');
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/vibes', vibeRoutes);
 router.use('/swipes', swipeRoutes);
 router.use('/conversations', conversationRoutes);
-router.use('/posts', postRoutes);
 router.use('/vibe-stories', vibeStoryRoutes);
 router.use('/media', mediaRoutes);
 router.use('/messages', messageRoutes);
+router.use('/notifications', notificationRoutes);
 
 module.exports = router;
 
