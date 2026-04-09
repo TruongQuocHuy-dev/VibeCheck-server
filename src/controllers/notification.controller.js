@@ -2,11 +2,49 @@ const { Notification } = require('../models');
 const { getIO } = require('../config/socket');
 
 /**
+ * Helper: get and emit unread notification count
+ */
+const syncUnreadCount = async (userId) => {
+  try {
+    const unreadCount = await Notification.countDocuments({ owner: userId, isUnread: true });
+    const io = getIO();
+    io.to(`user:${userId}`).emit('unread_notification_count', { unreadCount });
+  } catch (err) {
+    console.error('[NotificationService] syncUnreadCount error:', err);
+  }
+};
+
+/**
  * Helper: create and emit a notification to a user
  */
 const createAndEmit = async ({ owner, kind, title, message, avatar = null, metadata = {} }) => {
   try {
-    const notification = await Notification.create({ owner, kind, title, message, avatar, metadata });
+    let notification;
+
+    // Aggregation logic for messages: Update existing unread notification if it exists for the same conversation
+    if (kind === 'message' && metadata.conversationId) {
+      notification = await Notification.findOneAndUpdate(
+        { 
+          owner, 
+          kind: 'message', 
+          isUnread: true, 
+          'metadata.conversationId': metadata.conversationId 
+        },
+        { 
+          title, 
+          message, 
+          avatar, 
+          metadata,
+          createdAt: new Date() // Bring to top
+        },
+        { new: true }
+      );
+    }
+
+    if (!notification) {
+      notification = await Notification.create({ owner, kind, title, message, avatar, metadata });
+    }
+
     const io = getIO();
     io.to(`user:${owner}`).emit('new_notification', {
       id: notification._id,
@@ -18,6 +56,10 @@ const createAndEmit = async ({ owner, kind, title, message, avatar = null, metad
       isUnread: true,
       createdAt: notification.createdAt,
     });
+
+    // Also sync the total unread count
+    syncUnreadCount(owner);
+
     return notification;
   } catch (err) {
     console.error('[NotificationService] createAndEmit error:', err);
@@ -61,6 +103,7 @@ const getNotifications = async (req, res) => {
 const markAllRead = async (req, res) => {
   try {
     await Notification.updateMany({ owner: req.user.id, isUnread: true }, { isUnread: false });
+    syncUnreadCount(req.user.id);
     return res.status(200).json({ status: 'success', message: 'All notifications marked as read.' });
   } catch (err) {
     return res.status(500).json({ status: 'error', message: 'Internal server error.' });
@@ -76,6 +119,7 @@ const markOneRead = async (req, res) => {
       { _id: req.params.id, owner: req.user.id },
       { isUnread: false }
     );
+    syncUnreadCount(req.user.id);
     return res.status(200).json({ status: 'success' });
   } catch (err) {
     return res.status(500).json({ status: 'error', message: 'Internal server error.' });
@@ -88,6 +132,7 @@ const markOneRead = async (req, res) => {
 const deleteOne = async (req, res) => {
   try {
     await Notification.findOneAndDelete({ _id: req.params.id, owner: req.user.id });
+    syncUnreadCount(req.user.id);
     return res.status(200).json({ status: 'success' });
   } catch (err) {
     return res.status(500).json({ status: 'error', message: 'Internal server error.' });
@@ -100,10 +145,11 @@ const deleteOne = async (req, res) => {
 const deleteAll = async (req, res) => {
   try {
     await Notification.deleteMany({ owner: req.user.id });
+    syncUnreadCount(req.user.id);
     return res.status(200).json({ status: 'success' });
   } catch (err) {
     return res.status(500).json({ status: 'error', message: 'Internal server error.' });
   }
 };
 
-module.exports = { createAndEmit, getNotifications, markAllRead, markOneRead, deleteOne, deleteAll };
+module.exports = { syncUnreadCount, createAndEmit, getNotifications, markAllRead, markOneRead, deleteOne, deleteAll };

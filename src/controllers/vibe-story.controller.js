@@ -281,6 +281,23 @@ const replyToVibeStory = catchAsync(async (req, res, next) => {
     preview: 'Đã trả lời Vibe của bạn: ' + content.slice(0, 30),
   });
 
+  // Persist notification for story author (background)
+  setImmediate(async () => {
+    try {
+      const senderUser = await User.findById(userId).select('fullName displayName avatar').lean();
+      await createAndEmit({
+        owner: story.author,
+        kind: 'message',
+        title: senderUser?.fullName || senderUser?.displayName || 'Ai đó',
+        message: 'Đã trả lời Vibe của bạn: ' + (content.length > 50 ? content.slice(0, 50) + '...' : content),
+        avatar: senderUser?.avatar || null,
+        metadata: { conversationId, senderId: userId, storyId: id },
+      });
+    } catch (notifErr) {
+      console.error('[Notification] Story reply notification error:', notifErr);
+    }
+  });
+
   return success(res, { message }, 201, 'Đã gửi trả lời Vibe.');
 });
 

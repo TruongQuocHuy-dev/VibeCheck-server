@@ -1,7 +1,7 @@
-const { Conversation, Message, User } = require('../models');
+const { Conversation, Message, User, Notification } = require('../models');
 const { getIO } = require('../config/socket');
 const { cloudinary } = require('../config/upload.config');
-const { createAndEmit } = require('./notification.controller');
+const { createAndEmit, syncUnreadCount } = require('./notification.controller');
 
 /**
  * GET /api/conversations
@@ -144,6 +144,19 @@ const getMessages = async (req, res) => {
       conversation.unreadCounts[unreadIndex].count = 0;
       await conversation.save();
     }
+
+    // Mark message notifications for this conversation as read
+    setImmediate(async () => {
+      try {
+        await Notification.updateMany(
+          { owner: userId, kind: 'message', 'metadata.conversationId': conversationId, isUnread: true },
+          { isUnread: false }
+        );
+        syncUnreadCount(userId);
+      } catch (err) {
+        console.error('[Notification] Error clearing notifications on getMessages:', err);
+      }
+    });
 
     return res.status(200).json({
       status: 'success',
@@ -294,7 +307,12 @@ const sendMessage = async (req, res) => {
             owner: pid,
             kind: 'message',
             title: senderUser?.fullName || senderUser?.displayName || 'Ai đó',
-            message: content ? content.slice(0, 80) : '📷 Đã gửi một tấm ảnh',
+            message: content ? content.slice(0, 80) : (
+              mediaType === 'image' ? (finalMediaList.length > 1 ? `🖼️ Đã gửi ${finalMediaList.length} ảnh` : '📷 Đã gửi một tấm ảnh') :
+              mediaType === 'video' ? '🎥 Đã gửi một video' :
+              mediaType === 'audio' ? '🎤 Đã gửi một tin nhắn thoại' :
+              '📁 Đã gửi một tệp'
+            ),
             avatar: senderUser?.avatar || null,
             metadata: { conversationId, senderId: userId },
           });
@@ -395,6 +413,19 @@ const markConversationAsRead = async (req, res) => {
       { conversationId, sender: { $ne: userId }, readBy: { $ne: userId } },
       { $addToSet: { readBy: userId } }
     );
+
+    // Mark message notifications for this conversation as read
+    setImmediate(async () => {
+      try {
+        await Notification.updateMany(
+          { owner: userId, kind: 'message', 'metadata.conversationId': conversationId, isUnread: true },
+          { isUnread: false }
+        );
+        syncUnreadCount(userId);
+      } catch (err) {
+        console.error('[Notification] Error clearing notifications on markRead:', err);
+      }
+    });
 
     return res.status(200).json({ status: 'success', message: 'Conversation marked as read.' });
   } catch (error) {
