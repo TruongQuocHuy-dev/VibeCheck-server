@@ -84,6 +84,7 @@ const register = catchAsync(async (req, res, next) => {
     user: {
       id: user._id,
       phone: user.phone,
+      role: user.role,
       fullName: user.fullName,
       displayName: user.displayName,
       gender: user.gender,
@@ -197,6 +198,7 @@ const login = catchAsync(async (req, res, next) => {
     user: {
       id: user._id,
       phone: user.phone,
+      role: user.role,
       fullName: user.fullName,
       displayName: user.displayName,
       gender: user.gender,
@@ -258,6 +260,7 @@ const googleLogin = catchAsync(async (req, res, next) => {
     user: {
       id: user._id,
       email: user.email,
+      role: user.role,
       fullName: user.fullName,
       displayName: user.displayName,
       gender: user.gender,

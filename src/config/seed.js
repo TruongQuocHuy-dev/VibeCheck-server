@@ -1,4 +1,19 @@
-const { VibeTag } = require('../models');
+const { VibeTag, User } = require('../models');
+//   {
+//     phone: '+84990000001',
+//     password: 'Admin@12345',
+//     fullName: 'VibeCheck Admin One',
+//     displayName: 'Admin One',
+//     email: 'admin1@vibecheck.local',
+//   },
+//   {
+//     phone: '+84990000002',
+//     password: 'Admin@123456',
+//     fullName: 'VibeCheck Admin Two',
+//     displayName: 'Admin Two',
+//     email: 'admin2@vibecheck.local',
+//   },
+// ];
 
 const VIBE_TAGS = [
   { label: 'La cà quán xá', emoji: '☕', colorType: 'cyan' },
@@ -27,4 +42,41 @@ const seedVibes = async () => {
   }
 };
 
-module.exports = { seedVibes };
+const seedAdminAccounts = async () => {
+  try {
+    for (const account of ADMIN_ACCOUNTS) {
+      const passwordHash = await User.hashPassword(account.password);
+      const existingUser = await User.findOne({ phone: account.phone });
+
+      if (existingUser) {
+        existingUser.role = 'admin';
+        existingUser.email = account.email;
+        existingUser.fullName = account.fullName;
+        existingUser.displayName = account.displayName;
+        existingUser.passwordHash = passwordHash;
+        if (!existingUser.firebaseUid) {
+          existingUser.firebaseUid = `admin-${account.phone.replace(/\D/g, '')}`;
+        }
+        await existingUser.save();
+        continue;
+      }
+
+      await User.create({
+        phone: account.phone,
+        email: account.email,
+        firebaseUid: `admin-${account.phone.replace(/\D/g, '')}`,
+        passwordHash,
+        role: 'admin',
+        fullName: account.fullName,
+        displayName: account.displayName,
+        isProfileComplete: true,
+      });
+    }
+
+    console.log('🛡️ Admin accounts seeded successfully!');
+  } catch (err) {
+    console.error('Error seeding admin accounts:', err);
+  }
+};
+
+module.exports = { seedVibes, seedAdminAccounts};

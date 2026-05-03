@@ -108,6 +108,7 @@ const getProfile = catchAsync(async (req, res, next) => {
   if (!user) return next(new AppError('Không tìm thấy người dùng.', 404));
 
   const userObj = user.toObject();
+  userObj.role = user.role;
   userObj.hasPassword = !!user.passwordHash;
   return success(res, { user: userObj }, 200, 'Lấy thông tin hồ sơ thành công.');
 });

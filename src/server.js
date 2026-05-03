@@ -20,8 +20,9 @@ const startServer = async () => {
   await connectDB();
 
   // Seed static vibe tags IF empty!
-  const { seedVibes } = require('./config/seed');
+  const { seedVibes, seedAdminAccounts } = require('./config/seed');
   await seedVibes();
+  await seedAdminAccounts();
 
   // Create HTTP server and attach Socket.io
   const httpServer = http.createServer(app);
