@@ -42,13 +42,34 @@ exports.getUsers = catchAsync(async (req, res, next) => {
   const search = (req.query.search || '').toString().trim();
 
   const filter = {}
+  const andConditions = []
+
   if (search) {
-    filter.$or = [
-      { phone: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } },
-      { displayName: { $regex: search, $options: 'i' } },
-      { fullName: { $regex: search, $options: 'i' } },
-    ]
+    andConditions.push({
+      $or: [
+        { phone: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { displayName: { $regex: search, $options: 'i' } },
+        { fullName: { $regex: search, $options: 'i' } },
+      ]
+    })
+  }
+  
+  if (req.query.status && req.query.status !== 'all') {
+    if (req.query.status === 'active') {
+      andConditions.push({
+        $or: [
+          { status: 'active' },
+          { status: { $exists: false } }
+        ]
+      })
+    } else {
+      andConditions.push({ status: req.query.status })
+    }
+  }
+
+  if (andConditions.length > 0) {
+    filter.$and = andConditions
   }
 
   const [total, users] = await Promise.all([
@@ -56,7 +77,17 @@ exports.getUsers = catchAsync(async (req, res, next) => {
     User.find(filter).select('-passwordHash').sort({ createdAt: -1 }).skip(skip).limit(limit),
   ])
 
-  res.json({ status: 'success', message: 'Danh sách users', data: { total, page, limit, users } })
+  res.json({ 
+    status: 'success', 
+    message: 'Danh sách users', 
+    data: { 
+      total, 
+      page, 
+      limit, 
+      totalPages: Math.ceil(total / limit),
+      users 
+    } 
+  })
 })
 
 exports.updateUser = catchAsync(async (req, res, next) => {
@@ -66,7 +97,7 @@ exports.updateUser = catchAsync(async (req, res, next) => {
   }
 
   const { id } = req.params
-  const allowed = ['role', 'displayName', 'fullName']
+  const allowed = ['role', 'displayName', 'fullName', 'status', 'banReason']
   const payload = {}
   for (const key of allowed) {
     if (Object.prototype.hasOwnProperty.call(req.body, key)) payload[key] = req.body[key]

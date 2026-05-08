@@ -107,6 +107,16 @@ const UserSchema = new mongoose.Schema(
         default: true,
       },
     },
+    status: {
+      type: String,
+      enum: ['active', 'banned'],
+      default: 'active',
+      index: true,
+    },
+    banReason: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );
