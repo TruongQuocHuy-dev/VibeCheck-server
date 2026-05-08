@@ -68,6 +68,21 @@ exports.getUsers = catchAsync(async (req, res, next) => {
     }
   }
 
+  if (req.query.role) {
+    if (req.query.role === 'user') {
+      andConditions.push({
+        $or: [
+          { role: 'user' },
+          { role: { $exists: false } }
+        ]
+      })
+    } else if (req.query.role.includes('|')) {
+      filter.role = { $in: req.query.role.split('|') }
+    } else {
+      filter.role = req.query.role
+    }
+  }
+
   if (andConditions.length > 0) {
     filter.$and = andConditions
   }
