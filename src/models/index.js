@@ -8,5 +8,6 @@ const UserReport = require('./UserReport.model');
 const StoryReaction = require('./StoryReaction.model');
 const StoryView = require('./StoryView.model');
 const Notification = require('./Notification.model');
+const Page = require('./Page.model');
 
-module.exports = { User, VibeTag, Swipe, Conversation, Message, VibeStory, UserReport, StoryReaction, StoryView, Notification };
+module.exports = { User, VibeTag, Swipe, Conversation, Message, VibeStory, UserReport, StoryReaction, StoryView, Notification, Page };

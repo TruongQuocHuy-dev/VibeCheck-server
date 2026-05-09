@@ -10,11 +10,13 @@ const vibeStoryRoutes = require('./vibe-story.routes');
 const mediaRoutes = require('./media.routes');
 const messageRoutes = require('./message.routes');
 const notificationRoutes = require('./notification.routes');
+const cmsRoutes = require('./cms.routes');
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/vibes', vibeRoutes);
 router.use('/admin', adminRoutes);
+router.use('/admin/cms', cmsRoutes);
 router.use('/swipes', swipeRoutes);
 router.use('/conversations', conversationRoutes);
 router.use('/vibe-stories', vibeStoryRoutes);
