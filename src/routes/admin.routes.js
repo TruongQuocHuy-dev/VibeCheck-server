@@ -22,6 +22,8 @@ router.get('/vibes', vibeController.getVibes);
 router.get('/vibes/stats', vibeController.getStats);
 router.post('/vibes/bulk-action', vibeController.bulkAction);
 router.get('/vibes/:id', vibeController.getVibe);
+router.patch('/vibes/:id/approve', vibeController.approveVibe);
+router.patch('/vibes/:id/reject', vibeController.rejectVibe);
 router.patch('/vibes/:id/hide', vibeController.hideVibe);
 router.patch('/vibes/:id/unhide', vibeController.unhideVibe);
 router.delete('/vibes/:id', vibeController.deleteVibe);

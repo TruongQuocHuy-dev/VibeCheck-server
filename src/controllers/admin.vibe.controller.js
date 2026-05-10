@@ -148,6 +148,61 @@ exports.hideVibe = catchAsync(async (req, res, next) => {
 });
 
 /**
+ * PATCH /api/admin/vibes/:id/approve
+ */
+exports.approveVibe = catchAsync(async (req, res, next) => {
+  const vibe = await VibeStory.findByIdAndUpdate(
+    req.params.id,
+    { status: 'active', approvedAt: new Date(), approvedBy: req.user?.id },
+    { new: true }
+  );
+
+  if (!vibe) {
+    return next(new AppError('Không tìm thấy vibe', 404));
+  }
+
+  if (req.app.get('io')) {
+    req.app.get('io').emit('vibe:approved', vibe._id);
+  }
+
+  // TODO: Create Audit Log
+
+  res.json({
+    status: 'success',
+    message: 'Đã duyệt vibe thành công',
+    data: formatVibeResponse(vibe)
+  });
+});
+
+/**
+ * PATCH /api/admin/vibes/:id/reject
+ */
+exports.rejectVibe = catchAsync(async (req, res, next) => {
+  const { reason, notifyUser } = req.body;
+  const vibe = await VibeStory.findByIdAndUpdate(
+    req.params.id,
+    { status: 'hidden', hiddenAt: new Date(), hiddenBy: req.user?.id, hiddenReason: reason },
+    { new: true }
+  );
+
+  if (!vibe) {
+    return next(new AppError('Không tìm thấy vibe', 404));
+  }
+
+  if (req.app.get('io')) {
+    req.app.get('io').emit('vibe:rejected', vibe._id);
+  }
+
+  // TODO: Create Audit Log and Send Notification to User if notifyUser is true
+
+  res.json({
+    status: 'success',
+    message: 'Đã từ chối vibe',
+    data: formatVibeResponse(vibe)
+  });
+});
+
+/**
  * PATCH /api/admin/vibes/:id/unhide
  */
 exports.unhideVibe = catchAsync(async (req, res, next) => {
