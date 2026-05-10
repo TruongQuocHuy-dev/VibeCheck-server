@@ -18,4 +18,6 @@ router.route('/pages/:id')
   .patch(cmsController.updatePage)
   .delete(cmsController.deletePage);
 
+router.get('/pages/:id/versions', cmsController.getPageVersions);
+
 module.exports = router;
