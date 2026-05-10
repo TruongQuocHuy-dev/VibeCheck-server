@@ -28,4 +28,14 @@ router.patch('/vibes/:id/hide', vibeController.hideVibe);
 router.patch('/vibes/:id/unhide', vibeController.unhideVibe);
 router.delete('/vibes/:id', vibeController.deleteVibe);
 
+// Story Moderation Routes
+const storyController = require('../controllers/admin.story.controller');
+router.get('/stories', storyController.getStories);
+router.get('/stories/stats', storyController.getStoryStats);
+router.post('/stories/bulk-delete', storyController.bulkDeleteStories);
+router.get('/stories/:id', storyController.getStory);
+router.patch('/stories/:id/visibility', storyController.hideStory);
+router.patch('/stories/:id/extend', storyController.extendStory);
+router.delete('/stories/:id', storyController.deleteStory);
+
 module.exports = router;

@@ -26,7 +26,11 @@ const startServer = async () => {
 
   // Create HTTP server and attach Socket.io
   const httpServer = http.createServer(app);
-  initSocket(httpServer);
+  const io = initSocket(httpServer);
+
+  // Init Cron Jobs
+  const { initCleanupJob } = require('./jobs/cleanupExpiredStories');
+  initCleanupJob(io);
 
   httpServer.listen(PORT, HOST, () => {
     const host = HOST === '0.0.0.0' ? 'localhost' : HOST;

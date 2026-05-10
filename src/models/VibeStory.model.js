@@ -43,7 +43,7 @@ const VibeStorySchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['active', 'hidden', 'pending'],
+      enum: ['active', 'hidden', 'pending', 'expired'],
       default: 'active',
       index: true,
     },
