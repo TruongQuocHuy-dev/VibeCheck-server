@@ -16,4 +16,14 @@ router.get('/users', require('../controllers/admin.controller').getUsers);
 /** PATCH /api/admin/users/:id */
 router.patch('/users/:id', require('../controllers/admin.controller').updateUser);
 
+// Vibe Moderation Routes
+const vibeController = require('../controllers/admin.vibe.controller');
+router.get('/vibes', vibeController.getVibes);
+router.get('/vibes/stats', vibeController.getStats);
+router.post('/vibes/bulk-action', vibeController.bulkAction);
+router.get('/vibes/:id', vibeController.getVibe);
+router.patch('/vibes/:id/hide', vibeController.hideVibe);
+router.patch('/vibes/:id/unhide', vibeController.unhideVibe);
+router.delete('/vibes/:id', vibeController.deleteVibe);
+
 module.exports = router;

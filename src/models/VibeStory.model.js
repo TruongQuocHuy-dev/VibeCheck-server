@@ -41,6 +41,23 @@ const VibeStorySchema = new mongoose.Schema(
       type: Date,
       default: () => new Date(Date.now() + 24 * 60 * 60 * 1000), // Default 24 hours like Instagram story
     },
+    status: {
+      type: String,
+      enum: ['active', 'hidden', 'pending'],
+      default: 'active',
+      index: true,
+    },
+    reportCount: {
+      type: Number,
+      default: 0,
+    },
+    reports: [
+      {
+        reporter: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        reason: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );
