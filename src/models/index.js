@@ -10,5 +10,22 @@ const StoryView = require('./StoryView.model');
 const Notification = require('./Notification.model');
 const Page = require('./Page.model');
 const PageVersion = require('./PageVersion.model');
+const Blacklist = require('./Blacklist.model');
+const AuditLog = require('./AuditLog.model');
 
-module.exports = { User, VibeTag, Swipe, Conversation, Message, VibeStory, UserReport, StoryReaction, StoryView, Notification, Page, PageVersion };
+module.exports = { 
+  User, 
+  VibeTag, 
+  Swipe, 
+  Conversation, 
+  Message, 
+  VibeStory, 
+  UserReport, 
+  StoryReaction, 
+  StoryView, 
+  Notification, 
+  Page, 
+  PageVersion,
+  Blacklist,
+  AuditLog
+};

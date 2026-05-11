@@ -38,4 +38,17 @@ router.patch('/stories/:id/visibility', storyController.hideStory);
 router.patch('/stories/:id/extend', storyController.extendStory);
 router.delete('/stories/:id', storyController.deleteStory);
 
+// Blacklist Management Routes
+const blacklistController = require('../controllers/admin.blacklist.controller');
+const auditLog = require('../utils/auditLog');
+const { restrictTo } = require('../middlewares/restrictTo.middleware');
+
+router.use('/blacklist', restrictTo('admin', 'moderator'));
+
+router.get('/blacklist', blacklistController.getBlacklist);
+router.get('/blacklist/stats', blacklistController.getBlacklistStats);
+router.post('/blacklist', auditLog('ADD_BLACKLIST_WORD', 'Blacklist'), blacklistController.addWord);
+router.patch('/blacklist/:id', auditLog('UPDATE_BLACKLIST_WORD', 'Blacklist'), blacklistController.updateWord);
+router.delete('/blacklist/:id', auditLog('DELETE_BLACKLIST_WORD', 'Blacklist'), blacklistController.deleteWord);
+
 module.exports = router;
