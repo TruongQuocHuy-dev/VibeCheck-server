@@ -61,9 +61,19 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    vibeTags: {
+      type: [String], // Các nhãn sở thích cũ
+      default: [],
+    },
     vibes: {
       type: [String],
       default: [],
+    },
+    profileModerationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+      index: true,
     },
     photos: {
       type: [String],

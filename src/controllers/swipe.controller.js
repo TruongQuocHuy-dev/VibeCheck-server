@@ -239,8 +239,10 @@ const getCandidates = async (req, res) => {
 
     const baseUserFilter = {
       isProfileComplete: true,
+      role: { $ne: 'admin' },
       _id: { $ne: userId },
       birthYear: { $lte: maxBirthYear, $gte: minBirthYear },
+      profileModerationStatus: { $ne: 'rejected' },
     };
 
     if (filterGender === 'male' || filterGender === 'female') {
@@ -408,8 +410,10 @@ const getCandidatesEstimate = async (req, res) => {
 
     const baseUserFilter = {
       isProfileComplete: true,
+      role: { $ne: 'admin' },
       _id: { $ne: userId },
       birthYear: { $lte: maxBirthYear, $gte: minBirthYear },
+      profileModerationStatus: { $ne: 'rejected' },
     };
 
     if (filterGender === 'male' || filterGender === 'female') {

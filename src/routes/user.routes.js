@@ -14,6 +14,7 @@ const {
   updatePrivacySettings,
 } = require('../controllers/user.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
+const checkBlacklist = require('../middlewares/checkBlacklist');
 const { upload } = require('../config/upload.config');
 
 const router = express.Router();
@@ -28,10 +29,10 @@ router.get('/profile', getProfile);
 router.get('/:id/profile', getPublicProfile);
 
 /** PATCH /api/users/profile — Update displayName, fullName, gender, birthYear */
-router.patch('/profile', updateProfile);
+router.patch('/profile', checkBlacklist(['displayName', 'fullName']), updateProfile);
 
 /** PATCH /api/users/bio — Update bio */
-router.patch('/bio', updateBio);
+router.patch('/bio', checkBlacklist(['bio']), updateBio);
 
 /** PATCH /api/users/privacy — Update privacy settings */
 router.patch('/privacy', updatePrivacySettings);

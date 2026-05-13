@@ -1,6 +1,7 @@
 const express = require('express');
 const { getStats } = require('../controllers/admin.controller');
 const { authenticate } = require('../middlewares/auth.middleware');
+const auditLog = require('../utils/auditLog');
 
 const router = express.Router();
 
@@ -18,15 +19,10 @@ router.patch('/users/:id', require('../controllers/admin.controller').updateUser
 
 // Vibe Moderation Routes
 const vibeController = require('../controllers/admin.vibe.controller');
-router.get('/vibes', vibeController.getVibes);
+router.get('/vibes/moderation', vibeController.getVibesModeration);
 router.get('/vibes/stats', vibeController.getStats);
-router.post('/vibes/bulk-action', vibeController.bulkAction);
-router.get('/vibes/:id', vibeController.getVibe);
-router.patch('/vibes/:id/approve', vibeController.approveVibe);
-router.patch('/vibes/:id/reject', vibeController.rejectVibe);
-router.patch('/vibes/:id/hide', vibeController.hideVibe);
-router.patch('/vibes/:id/unhide', vibeController.unhideVibe);
-router.delete('/vibes/:id', vibeController.deleteVibe);
+router.patch('/vibes/:id/moderate', auditLog('MODERATE_VIBE', 'Vibe'), vibeController.moderateVibe);
+router.delete('/vibes/:id', auditLog('DELETE_VIBE', 'Vibe'), vibeController.deleteVibe);
 
 // Story Moderation Routes
 const storyController = require('../controllers/admin.story.controller');
@@ -40,7 +36,6 @@ router.delete('/stories/:id', storyController.deleteStory);
 
 // Blacklist Management Routes
 const blacklistController = require('../controllers/admin.blacklist.controller');
-const auditLog = require('../utils/auditLog');
 const { restrictTo } = require('../middlewares/restrictTo.middleware');
 
 router.use('/blacklist', restrictTo('admin', 'moderator'));

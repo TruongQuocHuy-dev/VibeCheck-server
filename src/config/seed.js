@@ -1,19 +1,20 @@
 const { VibeTag, User } = require('../models');
-//   {
-//     phone: '+84990000001',
-//     password: 'Admin@12345',
-//     fullName: 'VibeCheck Admin One',
-//     displayName: 'Admin One',
-//     email: 'admin1@vibecheck.local',
-//   },
-//   {
-//     phone: '+84990000002',
-//     password: 'Admin@123456',
-//     fullName: 'VibeCheck Admin Two',
-//     displayName: 'Admin Two',
-//     email: 'admin2@vibecheck.local',
-//   },
-// ];
+const ADMIN_ACCOUNTS = [
+  {
+    phone: '+84990000001',
+    password: 'Admin@12345',
+    fullName: 'VibeCheck Admin One',
+    displayName: 'Admin One',
+    email: 'admin1@vibecheck.local',
+  },
+  {
+    phone: '+84990000002',
+    password: 'Admin@123456',
+    fullName: 'VibeCheck Admin Two',
+    displayName: 'Admin Two',
+    email: 'admin2@vibecheck.local',
+  },
+];
 
 const VIBE_TAGS = [
   { label: 'La cà quán xá', emoji: '☕', colorType: 'cyan' },
