@@ -46,4 +46,11 @@ router.post('/blacklist', auditLog('ADD_BLACKLIST_WORD', 'Blacklist'), blacklist
 router.patch('/blacklist/:id', auditLog('UPDATE_BLACKLIST_WORD', 'Blacklist'), blacklistController.updateWord);
 router.delete('/blacklist/:id', auditLog('DELETE_BLACKLIST_WORD', 'Blacklist'), blacklistController.deleteWord);
 
+// VibeTag Management Routes
+const vibeTagController = require('../controllers/admin.vibetag.controller');
+router.get('/vibe-tags', vibeTagController.getVibeTags);
+router.post('/vibe-tags', auditLog('CREATE_VIBE_TAG', 'VibeTag'), vibeTagController.createVibeTag);
+router.patch('/vibe-tags/:id', auditLog('UPDATE_VIBE_TAG', 'VibeTag'), vibeTagController.updateVibeTag);
+router.delete('/vibe-tags/:id', auditLog('DELETE_VIBE_TAG', 'VibeTag'), vibeTagController.deleteVibeTag);
+
 module.exports = router;

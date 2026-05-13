@@ -23,6 +23,7 @@ router.use('/vibe-stories', vibeStoryRoutes);
 router.use('/media', mediaRoutes);
 router.use('/messages', messageRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/vibe-tags', require('./vibetag.routes'));
 
 module.exports = router;
 
