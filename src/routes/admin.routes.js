@@ -11,11 +11,20 @@ router.use(authenticate);
 /** GET /api/admin/stats */
 router.get('/stats', getStats);
 
+/** GET /api/admin/dashboard/activity */
+router.get('/dashboard/activity', require('../controllers/admin.controller').getDashboardActivity);
+
+/** GET /api/admin/dashboard/charts */
+router.get('/dashboard/charts', require('../controllers/admin.controller').getDashboardCharts);
+
 /** GET /api/admin/users */
 router.get('/users', require('../controllers/admin.controller').getUsers);
 
 /** PATCH /api/admin/users/:id */
 router.patch('/users/:id', require('../controllers/admin.controller').updateUser);
+
+/** GET /api/admin/analytics */
+router.get('/analytics', require('../controllers/admin.controller').getAnalytics);
 
 // Vibe Moderation Routes
 const vibeController = require('../controllers/admin.vibe.controller');
