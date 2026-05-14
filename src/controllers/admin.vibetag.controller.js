@@ -19,8 +19,10 @@ exports.getVibeTags = catchAsync(async (req, res, next) => {
   if (colorType && colorType !== 'all') {
     filter.colorType = colorType;
   }
-  if (status && status !== 'all') {
-    filter.isActive = status === 'active';
+  if (status === 'active') {
+    filter.isActive = { $ne: false };
+  } else if (status === 'inactive') {
+    filter.isActive = false;
   }
 
   const [total, tags] = await Promise.all([
