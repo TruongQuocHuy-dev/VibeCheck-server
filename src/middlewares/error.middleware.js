@@ -12,7 +12,15 @@ const errorMiddleware = (err, req, res, next) => {
     console.error('🔴 ERROR:', err);
   }
 
-  return res.status(statusCode).json({ status, message });
+  const responseBody = { status, message };
+  if (err.code) {
+    responseBody.code = err.code;
+  }
+  if (err.banReason) {
+    responseBody.banReason = err.banReason;
+  }
+
+  return res.status(statusCode).json(responseBody);
 };
 
 module.exports = errorMiddleware;

@@ -293,5 +293,32 @@ exports.updateUser = catchAsync(async (req, res, next) => {
     return next(new AppError('Không tìm thấy user.', 404))
   }
 
+  if (updated.status === 'banned') {
+    try {
+      const { getIO } = require('../config/socket');
+      const io = getIO();
+      io.to(`user:${id}`).emit('account_banned', {
+        status: 'banned',
+        reason: updated.banReason || 'Vi phạm Tiêu chuẩn Cộng đồng của chúng tôi.',
+        message: 'Tài khoản của bạn đã bị đình chỉ.'
+      });
+
+      // Force socket disconnect after 1 second to allow client to receive event
+      const roomSockets = io.sockets.adapter.rooms.get(`user:${id}`);
+      if (roomSockets) {
+        for (const socketId of roomSockets) {
+          const s = io.sockets.sockets.get(socketId);
+          if (s) {
+            setTimeout(() => {
+              s.disconnect(true);
+            }, 1000);
+          }
+        }
+      }
+    } catch (socketErr) {
+      console.log('Error notifying user via socket:', socketErr);
+    }
+  }
+
   res.json({ status: 'success', message: 'User updated', data: { user: updated } })
 })

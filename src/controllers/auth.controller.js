@@ -71,6 +71,13 @@ const register = catchAsync(async (req, res, next) => {
     }
   }
 
+  if (user && user.status === 'banned') {
+    const err = new AppError('Tài khoản của bạn đã bị đình chỉ.', 403);
+    err.code = 'BANNED';
+    err.banReason = user.banReason || 'Vi phạm Tiêu chuẩn Cộng đồng của chúng tôi.';
+    return next(err);
+  }
+
   // 3. Generate app-level JWT tokens (not Firebase tokens)
   const accessToken = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);
@@ -184,6 +191,13 @@ const login = catchAsync(async (req, res, next) => {
     return next(new AppError('Số điện thoại chưa được đăng ký hoặc chưa có mật khẩu.', 401));
   }
 
+  if (user.status === 'banned') {
+    const err = new AppError('Tài khoản của bạn đã bị đình chỉ.', 403);
+    err.code = 'BANNED';
+    err.banReason = user.banReason || 'Vi phạm Tiêu chuẩn Cộng đồng của chúng tôi.';
+    return next(err);
+  }
+
   const isMatch = await user.comparePassword(password);
   if (!isMatch) return next(new AppError('Mật khẩu không chính xác.', 401));
 
@@ -246,6 +260,13 @@ const googleLogin = catchAsync(async (req, res, next) => {
       isProfileComplete: false,
     });
     isNewUser = true;
+  }
+
+  if (user && user.status === 'banned') {
+    const err = new AppError('Tài khoản của bạn đã bị đình chỉ.', 403);
+    err.code = 'BANNED';
+    err.banReason = user.banReason || 'Vi phạm Tiêu chuẩn Cộng đồng của chúng tôi.';
+    return next(err);
   }
 
   // Generate app-level JWT tokens
