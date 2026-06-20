@@ -26,6 +26,12 @@ router.patch('/users/:id', require('../controllers/admin.controller').updateUser
 /** GET /api/admin/analytics */
 router.get('/analytics', require('../controllers/admin.controller').getAnalytics);
 
+// Report Management Routes
+const reportController = require('../controllers/admin.report.controller');
+router.get('/reports', reportController.getReports);
+router.get('/reports/:id', reportController.getReportDetail);
+router.patch('/reports/:id/resolve', auditLog('RESOLVE_REPORT', 'UserReport'), reportController.resolveReport);
+
 // Vibe Moderation Routes
 const vibeController = require('../controllers/admin.vibe.controller');
 router.get('/vibes/moderation', vibeController.getVibesModeration);
